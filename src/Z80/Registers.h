@@ -2,13 +2,13 @@
 #define Z80REGISTERS_H
 
 #include <stdint.h>
-#include "Z80Registers.h"
+#include "Flags.h"
 
-class Z80Registers
+class Registers
 {
 public:
-    Z80Registers();
-    virtual ~Z80Registers();
+    Registers();
+    virtual ~Registers();
 
     union
     {
@@ -52,6 +52,7 @@ public:
 
 protected:
 private:
+    Flags* flags;
 
 };
 

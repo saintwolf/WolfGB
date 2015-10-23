@@ -1,18 +1,26 @@
 #ifndef Z80INSTRUCTIONS_H
 #define Z80INSTRUCTIONS_H
 
-#include "Z80Registers.h"
+#include "Registers.h"
 
-class Z80Instructions
+#include <stdio.h>
+
+class Instructions
 {
-    Z80Registers* registers;
+    Registers* registers;
 
 public:
-    Z80Instructions(Z80Registers* registers);
-    virtual ~Z80Instructions();
+    Instructions(Registers* registers);
+    virtual ~Instructions();
+
+    void ExecuteInstruction(uint8_t opCode);
 
     // Instructions will return the m clock value of the operation
-    int NOP() {return 4;}
+    int NOP()
+    {
+        printf("NOP TIME!!1one!");
+        return 4;
+    }
 
     //***********************//
     //***** 8-Bit Loads *****//
@@ -461,7 +469,7 @@ public:
 
 private:
     int LDrn(uint8_t* reg);
-    int LDrr(uint8_t* destReg, uint8_t souceReg);
+    int LDrr(uint8_t* destReg, uint8_t* sourceReg);
     int LDnRRm(uint8_t destReg, uint16_t* souceReg);
     int LDRRmn(uint16_t* destReg, uint8_t* souceReg);
     int LDRRnn(uint16_t* reg, uint16_t pc);
@@ -491,6 +499,14 @@ private:
     int CBBITbr(uint8_t b, uint8_t* reg);
     int CBSETbr(uint8_t b, uint8_t* reg);
     int CBRESbr(uint8_t b, uint8_t* reg);
+
+protected:
+private:
+    typedef int (Instructions::*FuncPtr)();
+    // Array of function pointers
+    FuncPtr OpCodes[0xFF] = {
+        &Instructions::NOP, // 0x00
+    };
 };
 
 #endif // Z80INSTRUCTIONS_H

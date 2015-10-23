@@ -17,7 +17,7 @@ int main()
 
 void PrintRegisters()
 {
-    Z80Registers* r = z80.GetRegisters();
+    Registers* r = z80.GetRegisters();
 
     printf("A: %d", r->a);
     printf(" | AF: %d\n", r->af);
