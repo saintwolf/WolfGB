@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "Registers.h"
 #include "Instructions.h"
+#include "MMU.h"
 
 class Z80
 {
@@ -22,13 +23,11 @@ private:
         uint8_t m;
         uint8_t t;
     };
-
-    Registers* registers;
     Clock clock;
 
+    Registers* registers;
     Instructions* instructions;
-
-
+    MMU* mmu;
 };
 
 

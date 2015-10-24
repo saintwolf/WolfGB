@@ -1,8 +1,9 @@
 #include "Instructions.h"
 
-Instructions::Instructions(Registers* registers)
+Instructions::Instructions(Registers* registers, MMU* mmu)
 {
     this->registers = registers;
+    this->mmu = mmu;
 }
 
 Instructions::~Instructions()
@@ -19,6 +20,8 @@ void Instructions::ExecuteInstruction(uint8_t instruction)
 int Instructions::LDrn(uint8_t* reg)
 {
     // @TODO: Need to implement MMU to read from memory
+    *reg = mmu->ReadByte(++registers->pc);
+
 }
 
 int Instructions::LDrr(uint8_t *dest, uint8_t *source)

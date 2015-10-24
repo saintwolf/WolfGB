@@ -3,7 +3,8 @@
 Z80::Z80()
 {
     registers = new Registers();
-    instructions = new Instructions(registers);
+    mmu = new MMU();
+    instructions = new Instructions(registers, mmu);
     Reset();
 
     instructions->ExecuteInstruction(0); // @TODO: Just a NOP test
@@ -11,6 +12,7 @@ Z80::Z80()
 
 Z80::~Z80()
 {
+    delete mmu;
     delete instructions;
     delete registers;
 }

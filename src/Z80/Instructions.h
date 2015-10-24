@@ -1,16 +1,26 @@
 #ifndef Z80INSTRUCTIONS_H
 #define Z80INSTRUCTIONS_H
 
-#include "Registers.h"
-
 #include <stdio.h>
+
+#include "Registers.h"
+#include "MMU.h"
 
 class Instructions
 {
+private:
     Registers* registers;
+    MMU* mmu;
+
+    typedef int (Instructions::*FuncPtr)();
+    // Array of function pointers
+    FuncPtr OpCodes[0xFF] =
+    {
+        &Instructions::NOP, // 0x00
+    };
 
 public:
-    Instructions(Registers* registers);
+    Instructions(Registers* registers, MMU* mmu);
     virtual ~Instructions();
 
     void ExecuteInstruction(uint8_t opCode);
@@ -501,12 +511,6 @@ private:
     int CBRESbr(uint8_t b, uint8_t* reg);
 
 protected:
-private:
-    typedef int (Instructions::*FuncPtr)();
-    // Array of function pointers
-    FuncPtr OpCodes[0xFF] = {
-        &Instructions::NOP, // 0x00
-    };
 };
 
 #endif // Z80INSTRUCTIONS_H
