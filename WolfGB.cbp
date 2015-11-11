@@ -12,6 +12,7 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-std=c++11" />
 					<Add option="-g" />
 					<Add directory="src" />
 					<Add directory="src/Z80" />
@@ -39,10 +40,12 @@
 			<Add option="-fexceptions" />
 		</Compiler>
 		<Unit filename=".gitignore" />
+		<Unit filename="src/GPU/GPU.cpp" />
+		<Unit filename="src/GPU/GPU.h" />
+		<Unit filename="src/Memory/IORegisters.h" />
 		<Unit filename="src/Memory/MMU.cpp" />
 		<Unit filename="src/Memory/MMU.h" />
-		<Unit filename="src/Z80/Flags.cpp" />
-		<Unit filename="src/Z80/Flags.h" />
+		<Unit filename="src/Memory/MemorySizes.h" />
 		<Unit filename="src/Z80/Instructions.cpp" />
 		<Unit filename="src/Z80/Instructions.h" />
 		<Unit filename="src/Z80/Registers.cpp" />

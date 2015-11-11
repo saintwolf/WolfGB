@@ -1,13 +1,19 @@
 #ifndef MMU_H
 #define MMU_H
 
-#include<stdint.h>
+#include <stdint.h>
+#include "GPU/GPU.h"
+#include "MemorySizes.h"
 
 class MMU
 {
 public:
-    MMU();
+    MMU(GPU* gpu);
     virtual ~MMU();
+
+    void Reset();
+
+    uint8_t& GetMemoryRef(uint16_t address);
 
     uint8_t     ReadByte(uint16_t address);
     uint16_t    ReadWord(uint16_t address);
@@ -16,6 +22,8 @@ public:
 
 protected:
 private:
+    GPU* gpu;
+
     bool inBios = true;
 
     uint8_t bios[0x100] = // The official GameBoy BIOS
@@ -38,102 +46,9 @@ private:
         0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
     };
 
-    enum MemorySizes
-    {
-        ROM_CARTRIDGE_SIZE = 0x8000, /**< 32kB Cartridge. */
-        EXTERNAL_RAM_SIZE = 0x2000, /**<  8kB External (Cartridge) RAM. */
-        WORKING_RAM_SIZE = 0x2000, /**<  8kB Working RAM. */
-        HIGH_RAM_SIZE = 0xFF /**<  127b Zero Page RAM. */
-    };
-
-    uint8_t rom[ROM_CARTRIDGE_SIZE];
-    uint8_t wram[EXTERNAL_RAM_SIZE];
-    uint8_t eram[WORKING_RAM_SIZE];
-    uint8_t hram[HIGH_RAM_SIZE];
-
-
-    void Reset();
-
-    /** @brief Gets a pointer to a memory address to be accessed by Read/Write functions.
-     *
-     * @param address The memory address being accessed.
-     * @return Pointer to the memory address.
-     *
-     */
-    uint8_t* GetMemoryPtr(uint16_t address);
+    uint8_t rom[MemorySizes::ROM_CARTRIDGE_SIZE];
+    uint8_t wram[MemorySizes::EXTERNAL_RAM_SIZE];
+    uint8_t eram[MemorySizes::WORKING_RAM_SIZE];
+    uint8_t hram[MemorySizes::HIGH_RAM_SIZE];
 };
-
-enum class IORegisters
-{
-    // Name, Address, Usage
-            P1 = 0xFF00,    // Joypad information
-            SB = 0xFF01,    // Serial Transfer Data
-            SC = 0xFF02,    // Serial I/O Control
-            DIV = 0xFF04,    // Timer Divider
-            TIMA = 0xFF05,    // Timer Counter
-            TMA = 0xFF06,    // Timer Modulo
-            TAC = 0xFF07,    // Timer Control
-            IF = 0xFF0F,    // Interrupt Flag
-
-            NR10 = 0xFF10,    // Sound Mode 1, Sweep
-            NR11 = 0xFF11,    // Sound Mode 1, Sound length/Wave pattern duty
-            NR12 = 0xFF12,    // Sound Mode 1, Envelope
-            NR13 = 0xFF13,    // Sound Mode 1, Frequency Low
-            NR14 = 0xFF14,    // Sound Mode 1, Frequency High
-
-            NR21 = 0xFF16,    // Sound Mode 2, Sound length/Wave pattern duty
-            NR22 = 0xFF17,    // Sound Mode 2, Envelope
-            NR23 = 0xFF18,    // Sound Mode 2, Frequency Low
-            NR24 = 0xFF19,    // Sound Mode 2, Frequency High
-
-            NR30 = 0xFF1A,    // Sound Mode 3, Sound on/off
-            NR31 = 0xFF1B,    // Sound Mode 3, Sound length
-            NR32 = 0xFF1C,    // Sound Mode 3, Select output level
-            NR33 = 0xFF1D,    // Sound Mode 3, Frequency Low
-            NR34 = 0xFF1E,    // Sound Mode 3, Frequency High
-
-            NR41 = 0xFF20,    // Sound Mode 4, Sound length
-            NR42 = 0xFF21,    // Sound Mode 4, Envelope
-            NR43 = 0xFF22,    // Sound Mode 4, Polynomial counter
-            NR44 = 0xFF23,    // Sound Mode 4, Counter/Consecutive, Initial
-
-            NR50 = 0xFF24,    // Sound Mode 5, Channel Control, On/Off, Volume
-            NR51 = 0xFF25,    // Sound Mode 5, Select of sound output terminal
-            NR52 = 0xFF26,    // Sound Mode 5, Sound On/Off
-
-            WAV00 = 0xFF30,    // Wave pattern RAM  16bytes
-            WAV01 = 0xFF31,
-            WAV02 = 0xFF32,
-            WAV03 = 0xFF33,
-            WAV04 = 0xFF34,
-            WAV05 = 0xFF35,
-            WAV06 = 0xFF36,
-            WAV07 = 0xFF37,
-            WAV08 = 0xFF38,
-            WAV09 = 0xFF39,
-            WAV10 = 0xFF3A,
-            WAV11 = 0xFF3B,
-            WAV12 = 0xFF3C,
-            WAV13 = 0xFF3D,
-            WAV14 = 0xFF3E,
-            WAV15 = 0xFF3F,
-
-            LCDC = 0xFF40,    // LCD Control
-            STAT = 0xFF41,    // LCD Status
-            SCY = 0xFF42,    // Scroll Screen Y
-            SCX = 0xFF43,    // Scroll Screen X
-            LY = 0xFF44,     // LCDC Y-Coord
-            LYC = 0xFF45,     // LY Compare
-            DMA = 0xFF46,     // DMA Transfer
-            BGP = 0xFF47,     // Background Palette Data
-            OBP0 = 0xFF48,    // Object Palette 0 Data
-            OBP1 = 0xFF49,    // Object Palette 1 Data
-            WY = 0xFF4A,    // Window Y Position
-            WX = 0xFF4B,    // Window X Position
-
-            // Some GBC only registers, ignored here (at least now...)
-
-            IE = 0xFFFF      // Interrupt enable
-};
-
 #endif // MMU_H

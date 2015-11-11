@@ -2,13 +2,26 @@
 #define Z80REGISTERS_H
 
 #include <stdint.h>
-#include "Flags.h"
+
+enum class Flags
+{
+    C = 0x10,
+    H = 0x20,
+    N = 0x40,
+    Z = 0x80,
+};
 
 class Registers
 {
 public:
     Registers();
     virtual ~Registers();
+
+    void Reset();
+
+    void SetFlag(Flags flag);
+    void ClearFlag(Flags flag);
+    uint8_t GetFlag(Flags flag);
 
     union
     {
@@ -52,7 +65,6 @@ public:
 
 protected:
 private:
-    Flags* flags;
 
 };
 
