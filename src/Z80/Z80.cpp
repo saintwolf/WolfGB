@@ -19,13 +19,6 @@ Z80::~Z80()
 
 void Z80::Reset()
 {
-    registers->af = 0;
-    registers->bc = 0;
-    registers->de = 0;
-    registers->hl = 0;
-    registers->pc = 0;
-    registers->sp = 0;
-
     clock.m = 0;
     clock.t = 0;
 
@@ -36,8 +29,11 @@ void Z80::Reset()
 
 uint8_t Z80::Step()
 {
-    instructions->ExecuteInstruction(mmu->ReadByte(registers->pc++));
-    // @todo Increment clock
+    uint8_t opcode = mmu->ReadByte(registers->pc++);
+    instructions->ExecuteInstruction(opcode);
+    gpu->Step(ClockCycles[opcode] >> 2);
+    clock.m += ClockCycles[opcode];
+    clock.t += ClockCycles[opcode] >> 2;
 }
 
 Registers* Z80::GetRegisters()

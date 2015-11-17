@@ -27,7 +27,7 @@ void Registers::SetFlag(Flags flag)
 
 void Registers::ClearFlag(Flags flag)
 {
-    f ^= (int)flag;
+    f &= ~(int)flag;
 }
 
 uint8_t Registers::GetFlag(Flags flag)

@@ -38,7 +38,12 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
+			<Add directory="F:/Users/Saintwolf/Documents/Programming/SDL2-2.0.3/i686-w64-mingw32/include/SDL2" />
 		</Compiler>
+		<Linker>
+			<Add option="-lmingw32 -lSDL2main -lSDL2" />
+			<Add directory="F:/Users/Saintwolf/Documents/Programming/SDL2-2.0.3/i686-w64-mingw32/lib" />
+		</Linker>
 		<Unit filename=".gitignore" />
 		<Unit filename="src/GPU/GPU.cpp" />
 		<Unit filename="src/GPU/GPU.h" />

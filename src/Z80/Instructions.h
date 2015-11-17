@@ -45,17 +45,17 @@ private:
 
     /** @brief Decrements SP, then puts data into address at SP
      *
-     * @param uint8_t data The data.
+     * @param uint16_t data The data.
      *
      */
-    void PushStack (uint8_t data);
+    void PushStack (uint16_t data);
 
     /** @brief Fetches data at SP, then increments SP.
      *
      * @return Data from address at SP
      *
      */
-    uint8_t PopStack ();
+    uint16_t PopStack ();
 
     void CheckHalfCarry(uint8_t a, uint8_t b, bool carryIn = false);
     void CheckHalfCarry(uint16_t a, uint16_t b, bool carryIn = false);

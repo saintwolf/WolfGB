@@ -50,5 +50,7 @@ private:
     uint8_t wram[MemorySizes::EXTERNAL_RAM_SIZE];
     uint8_t eram[MemorySizes::WORKING_RAM_SIZE];
     uint8_t hram[MemorySizes::HIGH_RAM_SIZE];
+
+    uint8_t randomint; // @todo a placeholder to return a random reference for IO ports not implemented
 };
 #endif // MMU_H

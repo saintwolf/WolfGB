@@ -119,6 +119,7 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
 
         default:
             printf("MEMORY ADDESS NOT FOUND: 0x%X", address);
+            return randomint;
             break;
         }
     }

@@ -5,6 +5,7 @@
 
 GPU::GPU()
 {
+    screenRenderer = NULL;
     Reset();
 }
 
@@ -66,19 +67,55 @@ void GPU::Step(uint8_t clockCycles)
             lineMode = ModeFlags::HBlank;
 
             RenderScanLine();
-
         }
         break;
 
+    // HBlank
+    // After the last HBlank, update the screen
     case ModeFlags::HBlank:
+        if (modeClock >= 51)
+        {
+            // End of hblank for last scanline; render screen
+            if (LY == 143)
+            {
+                // Enter VBlank
+                lineMode = ModeFlags::VBlank;
+                SDL_RenderPresent(screenRenderer);
+            }
+            // Go to OAM Read mode for next line
+            else
+            {
+                lineMode = ModeFlags::OAMRead;
+            }
+            LY++;
+            modeClock = 0;
+
+        }
 
         break;
 
     case ModeFlags::VBlank:
+        if (modeClock >= 114)
+        {
+            modeClock = 0;
+            LY++;
+
+            if (LY > 153)
+            {
+                // Restart scanning modes
+                lineMode = ModeFlags::OAMRead;
+                LY = 0;
+            }
+        }
 
         break;
 
     }
+}
+
+void GPU::SetScreenRenderer(SDL_Renderer* renderer)
+{
+    this->screenRenderer = renderer;
 }
 
 uint8_t& GPU::GetMemoryRef(uint16_t address)
@@ -130,6 +167,50 @@ uint8_t& GPU::GetMemoryRef(uint16_t address)
 //        printf("UNSUPPORTED GPU MEMORY LOCATION: 0x%X", address);
 //        return 0;
     }
+}
+
+bool GPU::LcdEnabled()
+{
+    return LCDC >> 7 & 1;
+}
+
+uint16_t GPU::GetWindowTileMapAddress()
+{
+    if (LCDC >> 6 & 1) // Shift bit 6 to bit 0 and make sure it's the only value
+        return 0x9C00;
+    else
+        return 0x9800;
+}
+
+bool GPU::WindowEnabled()
+{
+    return LCDC >> 5 & 1;
+}
+
+uint16_t GPU::GetTileDataAddress()
+{
+    if (LCDC >> 4 & 1)
+        return 0x8000;
+    else
+        return 0x8800;
+}
+
+uint16_t GPU::GetBgTileMapAddress()
+{
+    if (LCDC >> 3 & 1)
+        return 0x9C00;
+    else
+        return 0x9800;
+}
+
+bool GPU::ObjectEnabled()
+{
+    return LCDC >> 1 & 0;
+}
+
+bool GPU::BackgroundEnabled()
+{
+    return LCDC & 1;
 }
 
 void GPU::RenderScanLine()
@@ -190,49 +271,27 @@ void GPU::RenderScanLine()
         pixel &= 0x3;
 
         LineBuffer[currentX] = pixel;
+
+        for (int x = 0; x < ScreenWidth; x++)
+            {
+                uint8_t colour = LineBuffer[x];
+                uint8_t colourFromPal = BGPalette >> colour * 2;
+                switch (colourFromPal)
+                {
+                case 0:
+                    SDL_SetRenderDrawColor(screenRenderer, 255, 255, 255, 255);
+                    break;
+                case 1:
+                    SDL_SetRenderDrawColor(screenRenderer, 192, 192, 192, 255);
+                    break;
+                case 2:
+                    SDL_SetRenderDrawColor(screenRenderer, 64, 64, 64, 255);
+                    break;
+                case 3:
+                    SDL_SetRenderDrawColor(screenRenderer, 0, 0, 0, 255);
+                    break;
+                }
+                SDL_RenderDrawPoint(screenRenderer, x, LY);
+            }
     }
-}
-
-bool GPU::LcdEnabled()
-{
-    return LCDC >> 7 & 1;
-}
-
-uint16_t GPU::GetWindowTileMapAddress()
-{
-    if (LCDC >> 6 & 1) // Shift bit 6 to bit 0 and make sure it's the only value
-        return 0x9C00;
-    else
-        return 0x9800;
-}
-
-bool GPU::WindowEnabled()
-{
-    return LCDC >> 5 & 1;
-}
-
-uint16_t GPU::GetTileDataAddress()
-{
-    if (LCDC >> 4 & 1)
-        return 0x8000;
-    else
-        return 0x8800;
-}
-
-uint16_t GPU::GetBgTileMapAddress()
-{
-    if (LCDC >> 3 & 1)
-        return 0x9C00;
-    else
-        return 0x9800;
-}
-
-bool GPU::ObjectEnabled()
-{
-    return LCDC >> 1 & 0;
-}
-
-bool GPU::BackgroundEnabled()
-{
-    return LCDC & 1;
 }

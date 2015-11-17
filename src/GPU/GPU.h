@@ -1,6 +1,7 @@
 #ifndef GPU_H
 #define GPU_H
 
+#include <SDL.h>
 #include <stdint.h>
 #include "Z80/Registers.h"
 #include "Memory/MemorySizes.h"
@@ -24,8 +25,19 @@ class GPU
 
         void Reset();
         void Step(uint8_t clockCycles);
+        void SetScreenRenderer(SDL_Renderer* renderer);
 
         uint8_t& GetMemoryRef(uint16_t address);
+
+        // Functions to obtain information from LCDC 0xFF40
+        bool LcdEnabled(); // bit 7
+        uint16_t GetWindowTileMapAddress();
+        bool WindowEnabled();
+        uint16_t GetTileDataAddress();
+        uint16_t GetBgTileMapAddress(); // 9800-9BFF if off, 9C00-9FFF if on
+        bool ObjectSize(); // False = 8x8, True = 8x16
+        bool ObjectEnabled();
+        bool BackgroundEnabled(); // bit 0
 
     protected:
     private:
@@ -38,7 +50,7 @@ class GPU
         uint8_t ScrollY; // Y Scroll (0xFF42)
         uint8_t ScrollX; // X Scroll (0xFF43)
         uint8_t LY; // The current line being drawn/scanned
-        uint8_t LYC; // LY Compare. Compares itself with LY. If the values are the same it causes STAT to set the coincedent flag.
+        uint8_t LYC; // LY Compare. Compares itself with LY. If the values are the same it causes STAT to set the coincidence flag.
         uint8_t DMA; // DMA Transfer and Start address
         uint8_t BGPalette; // Background palette data
         uint8_t ObjPalette0; // Object palette data 0
@@ -51,18 +63,13 @@ class GPU
 
         uint8_t LineBuffer[ScreenWidth];
 
+        // Pointer to the screen
+        SDL_Renderer* screenRenderer;
+
         // Renders scanline
         void RenderScanLine();
 
-        // Functions to obtain information from LCDC 0xFF40
-        bool LcdEnabled();
-        uint16_t GetWindowTileMapAddress();
-        bool WindowEnabled();
-        uint16_t GetTileDataAddress();
-        uint16_t GetBgTileMapAddress(); // 9800-9BFF if off, 9C00-9FFF if on
-        bool ObjectSize(); // False = 8x8, True = 8x16
-        bool ObjectEnabled();
-        bool BackgroundEnabled();
+
 };
 
 #endif // GPU_H

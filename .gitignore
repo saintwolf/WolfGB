@@ -26,3 +26,4 @@ tests/**/gcc-release/
 *.cpp.hex
 
 doxygen
+cbp2make.exe

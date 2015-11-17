@@ -14,7 +14,6 @@ Instructions::~Instructions()
 
 void Instructions::ExecuteInstruction(uint8_t opcode)
 {
-    printf("Executing instruction: 0x%X\n", opcode);
     (this->*OpCodes[opcode])();
 }
 
@@ -30,14 +29,17 @@ uint16_t Instructions::LoadImmediate16()
     return low + (high << 8);
 }
 
-void Instructions::PushStack(uint8_t data)
+void Instructions::PushStack(uint16_t data)
 {
-    mmu->WriteByte(--registers->sp, data);
+    registers->sp -= 2;
+    mmu->WriteWord(registers->sp, data);
 }
 
-uint8_t Instructions::PopStack()
+uint16_t Instructions::PopStack()
 {
-    return mmu->ReadByte(registers->sp++);
+    uint16_t data = mmu->ReadWord(registers->sp);
+    registers->sp += 2;
+    return data;
 }
 
 /** @brief Checks for half carry, sets appropriate flag
@@ -50,7 +52,8 @@ uint8_t Instructions::PopStack()
 */
 void Instructions::CheckHalfCarry(uint8_t a, uint8_t b, bool carryIn)
 {
-    if ((a & 0xF) + (b & 0xF) + (int)carryIn > 0xF)
+    // Adds a, b and carry in lower nibble to see if it sets bit 4
+    if ((a & 0xF) + (b & 0xF) + (int)carryIn & 0x10)
     {
         registers->SetFlag(Flags::H);
     }
@@ -70,7 +73,8 @@ void Instructions::CheckHalfCarry(uint8_t a, uint8_t b, bool carryIn)
 */
 void Instructions::CheckHalfCarry(uint16_t a, uint16_t b, bool carryIn)
 {
-    if ((a & 0xFFF) + (b & 0xFFF) + (uint16_t)carryIn > 0xFFF)
+    // Adds a, b and carry in lower byte to see if it sets bit 8
+    if ((a & 0xFFF) + (b & 0xFFF) + carryIn & 0xF000)
     {
         registers->SetFlag(Flags::H);
     }
@@ -90,8 +94,9 @@ void Instructions::CheckHalfCarry(uint16_t a, uint16_t b, bool carryIn)
 */
 void Instructions::CheckCarry(uint8_t a, uint8_t b, bool carryIn)
 {
-    CheckHalfCarry(a, b, carryIn);
-    if ((int)(a + b + (int)carryIn) > 0xFF)
+    b += carryIn;
+    CheckHalfCarry(a, b);
+    if ((uint16_t)(a + b) & 0x100)
     {
         registers->SetFlag(Flags::C);
     }
@@ -111,8 +116,9 @@ void Instructions::CheckCarry(uint8_t a, uint8_t b, bool carryIn)
 */
 void Instructions::CheckCarry(uint16_t a, uint16_t b, bool carryIn)
 {
-    CheckHalfCarry(a, b, carryIn);
-    if ((uint32_t)(a & 0xFFFF) + (b & 0xFFFF) + (uint32_t) carryIn > 0xFFFF)
+    b += carryIn;
+    CheckHalfCarry(a, b);
+    if ((uint32_t)(a & 0xFFFF) + (b & 0xFFFF) + (int) carryIn & 0x10000)
     {
         registers->SetFlag(Flags::C);
     }
@@ -132,7 +138,8 @@ void Instructions::CheckCarry(uint16_t a, uint16_t b, bool carryIn)
 */
 void Instructions::CheckHalfBorrow(uint8_t a, uint8_t b, bool carryIn)
 {
-    if ((a & 0xF) < (b & 0xF) + (uint8_t) carryIn)
+    b += carryIn;
+    if ((a & 0x0F) < (b & 0x0F))
     {
         registers->ClearFlag(Flags::H);
     }
@@ -152,7 +159,8 @@ void Instructions::CheckHalfBorrow(uint8_t a, uint8_t b, bool carryIn)
 */
 void Instructions::CheckBorrow(uint8_t a, uint8_t b, bool carryIn)
 {
-    CheckHalfBorrow(a, b, carryIn);
+    b += carryIn;
+    CheckHalfBorrow(a, b);
     // Set carry flag if a is smaller than b + carry
     if (a < b + (uint8_t) carryIn)
     {
@@ -206,15 +214,12 @@ void Instructions::LDRRmr(uint16_t& dest, uint8_t& source)
 
 void Instructions::PUSHRR(uint16_t& reg)
 {
-    mmu->WriteByte(--registers->sp, (reg >> 8) & 0xFF);
-    mmu->WriteByte(--registers->sp, reg & 0xFF);
+    PushStack(reg);
 }
 
 void Instructions::POPRR(uint16_t& reg)
 {
-    uint16_t value = mmu->ReadWord(++registers->sp);
-    registers->sp++;
-    reg = value;
+    reg = PopStack();
 }
 
 void Instructions::ADDAr(uint8_t& reg)
@@ -290,14 +295,21 @@ void Instructions::CPr(uint8_t& reg)
 {
     registers->SetFlag(Flags::N);
     CheckBorrow(registers->a, reg);
-    CheckZero(registers->a - reg);
+    if (reg == registers->a)
+    {
+        registers->SetFlag(Flags::Z);
+    }
+    else
+    {
+        registers->ClearFlag(Flags::Z);
+    }
 }
 
 void Instructions::INCr(uint8_t& reg)
 {
     registers->ClearFlag(Flags::N);
     CheckCarry(reg, 1, false);
-    CheckZero(--reg);
+    CheckZero(++reg);
 }
 
 void Instructions::DECr(uint8_t& reg)
@@ -326,8 +338,7 @@ void Instructions::DECRR(uint16_t& reg)
 
 void Instructions::RSTN(uint8_t offset)
 {
-    PushStack((registers->pc >> 8) & 0xF);
-    PushStack(registers->pc & 0xF);
+    PushStack(registers->pc);
     registers->pc = 0 + offset;
 }
 
@@ -458,10 +469,7 @@ void Instructions::CBBITbr(uint8_t b, uint8_t& reg)
 {
     registers->SetFlag(Flags::H);
     registers->ClearFlag(Flags::N);
-    if (reg >> b & 1)
-        registers->SetFlag(Flags::C);
-    else
-        registers->ClearFlag(Flags::C);
+    CheckZero(reg >> b & 1);
 }
 
 /** @brief Set bit b in register reg. No flags affected.
@@ -914,7 +922,7 @@ int Instructions::LDDrHLm_a()
 {
     uint8_t HLm = mmu->GetMemoryRef(registers->hl);
     LDrr(registers->a, HLm);
-    HLm--;
+    registers->hl--;
     return 0;
 }
 
@@ -922,7 +930,7 @@ int Instructions::LDIHLmr_a()
 {
     uint8_t HLm = mmu->GetMemoryRef(registers->hl);
     LDrr(HLm, registers->a);
-    HLm++;
+    registers->hl++;
     return 0;
 }
 
@@ -930,7 +938,7 @@ int Instructions::LDIrHLm_a()
 {
     uint8_t HLm = mmu->GetMemoryRef(registers->hl);
     LDrr(registers->a, HLm);
-    HLm++;
+    registers->hl++;
     return 0;
 }
 
@@ -2072,29 +2080,28 @@ int Instructions::JRn()
 {
     registers->pc += LoadImmediate8();
     return 0;
-    return 0;
 }
 int Instructions::JRNZn()
 {
-    if (!registers->GetFlag(Flags::Z)) registers->pc += LoadImmediate8();
+    if (!registers->GetFlag(Flags::Z)) registers->pc += (int8_t)LoadImmediate8();
     else registers->pc++;
     return 0;
 }
 int Instructions::JRZn()
 {
-    if (registers->GetFlag(Flags::Z)) registers->pc += LoadImmediate8();
+    if (registers->GetFlag(Flags::Z)) registers->pc += (int8_t)LoadImmediate8();
     else registers->pc++;
     return 0;
 }
 int Instructions::JRNCn()
 {
-    if (!registers->GetFlag(Flags::C)) registers->pc += LoadImmediate8();
+    if (!registers->GetFlag(Flags::C)) registers->pc += (int8_t)LoadImmediate8();
     else registers->pc++;
     return 0;
 }
 int Instructions::JRCn()
 {
-    if (registers->GetFlag(Flags::C)) registers->pc += LoadImmediate8();
+    if (registers->GetFlag(Flags::C)) registers->pc += (int8_t)LoadImmediate8();
     else registers->pc++;
     return 0;
 }
@@ -2107,11 +2114,7 @@ int Instructions::JRCn()
 int Instructions::CALLnn()
 {
     uint16_t destAddr = LoadImmediate16();
-    return 0;
-    PushStack((registers->pc >> 8) & 0xF);
-    return 0;
-    PushStack(registers->pc & 0xF);
-    return 0;
+    PushStack(registers->pc);
     registers->pc = destAddr;
     return 0;
 }
@@ -2194,9 +2197,7 @@ int Instructions::RST38()
 
 int Instructions::RET()
 {
-    uint16_t destAddr = PopStack();
-    destAddr += PopStack() << 8;
-    registers->pc = destAddr;
+    registers->pc = PopStack();
     return 0;
 }
 
@@ -3237,7 +3238,6 @@ int Instructions::CBSWAPHLm()
 int Instructions::CBInst()
 {
     uint8_t opcode = LoadImmediate8();
-    printf("Executing CB Instruction: 0x%X\n", opcode);
     (this->*CBOpcodes[opcode])();
     return 0;
 }
