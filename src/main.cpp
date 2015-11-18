@@ -4,19 +4,17 @@
 #include <string>
 
 #include "Z80.h"
+#include "GDDB.h"
 
 using namespace std;
 
-void PrintRegisters();
-void PrintGddb();
+SDL_Renderer* GetRenderer();
 
 Z80* z80;
+GDDB* gddb;
 
 int SCREEN_WIDTH = 160;
 int SCREEN_HEIGHT = 144;
-
-bool gddb = true;
-uint16_t breakPoint = 0xFFFF;
 
 int main(int argc, char *argv[])
 {
@@ -25,7 +23,29 @@ int main(int argc, char *argv[])
     cout << "==================" << endl << endl;
 
 
-    cout << "Initializing LCD" << endl;
+    cout << "Initialising LCD" << endl;
+    SDL_Renderer* renderer = GetRenderer();
+
+    cout << "Initialising GB Hardware" << endl;
+    z80 = new Z80();
+    z80->GetGPU()->SetScreenRenderer(renderer);
+    z80->Reset();
+
+    cout << "Initialising GDDB" << endl;
+    gddb = new GDDB(z80);
+
+    bool running = true;
+
+    while (running)
+    {
+        gddb->Step();
+        z80->Step();
+    }
+    return 0;
+}
+
+SDL_Renderer* GetRenderer()
+{
     SDL_Window* window = NULL;
 
     // Renders stuff to the window
@@ -58,69 +78,7 @@ int main(int argc, char *argv[])
 
             SDL_RenderPresent(renderer);
 
+            return renderer;
         }
     }
-
-
-
-    cout << "Initializing GB Hardware" << endl;
-    z80 = new Z80();
-    z80->GetGPU()->SetScreenRenderer(renderer);
-    z80->Reset();
-
-    bool running = true;
-
-    while (running)
-    {
-        if (gddb)
-        {
-            cout << endl;
-            PrintRegisters();
-            PrintGddb();
-            cout << endl;
-            printf("Executing instruction: 0x%X from 0x%X", z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc), z80->GetRegisters()->pc);
-            if (z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc) == 0xCB)
-            {
-                printf("Executing CB instruction: 0x%X from 0x%X", z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc + 1), z80->GetRegisters()->pc + 1);
-            }
-        }
-        z80->Step();
-    }
-    return 0;
-}
-
-void PrintRegisters()
-{
-    Registers* r = z80->GetRegisters();
-
-    printf("AF: 0x%X\n", r->af);
-    printf("BC: 0x%X\n", r->bc);
-    printf("DE: 0x%X\n", r->de);
-    printf("HL: 0x%X\n", r->hl);
-    printf("PC: 0x%X\n", r->pc);
-    printf("SP: 0x%X\n", r->sp);
-}
-
-void PrintGddb()
-{
-    if (!gddb)
-    {
-        // cout << "GDDB is disabled. Type 'debug' to enable stepping, or press Enter to run the emulator." << endl;
-        gddb = true; // @todo: remove this when instruction set is better
-    }
-    printf("PC: 0x%X | Next Instruction: 0x%X \n", z80->GetRegisters()->pc, z80->GetMMU()->ReadByte(z80->GetRegisters()->pc));
-    cout << ">";
-    string command;
-    getline(cin, command);
-
-    if (command.substr(0, 5) == "debug")
-    {
-        if (gddb)
-            cout << "GDDB disabled!";
-        else
-            cout << "GDDB enabled!";
-        cout << endl;
-        gddb = !gddb;
-    }
-
 }
