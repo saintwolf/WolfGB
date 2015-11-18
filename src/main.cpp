@@ -68,15 +68,6 @@ SDL_Renderer* GetRenderer()
         {
             renderer = SDL_CreateRenderer(window, -1, 0);
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            for (int x = 0; x < SCREEN_WIDTH; x++)
-            {
-                for (int y = 0; y < SCREEN_HEIGHT; y++)
-                {
-                    SDL_RenderDrawPoint(renderer, x, y);
-                }
-            }
-
-            SDL_RenderPresent(renderer);
 
             return renderer;
         }

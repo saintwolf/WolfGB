@@ -15,13 +15,16 @@ GPU::~GPU()
 
 void GPU::Reset()
 {
-    // @todo Reset GPU
-    /* @todo Not sure if I should keep this, as the GB BIOS clears it anyway
-    for (int i = 0; i < VIDEO_RAM_SIZE; i++)
+    // Clear screen
+    for (int x = 0; x < ScreenWidth; x++)
     {
-        vram[i] = 0;
+        for (int y = 0; y < ScreenHeight; y++)
+        {
+            SDL_RenderDrawPoint(screenRenderer, x, y);
+        }
     }
-    */
+
+    SDL_RenderPresent(screenRenderer);
 
     // Clear OAM
     for (int i = 0; i < OAM_SIZE; i++)
@@ -273,25 +276,25 @@ void GPU::RenderScanLine()
         LineBuffer[currentX] = pixel;
 
         for (int x = 0; x < ScreenWidth; x++)
+        {
+            uint8_t colour = LineBuffer[x];
+            uint8_t colourFromPal = BGPalette >> colour * 2;
+            switch (colourFromPal)
             {
-                uint8_t colour = LineBuffer[x];
-                uint8_t colourFromPal = BGPalette >> colour * 2;
-                switch (colourFromPal)
-                {
-                case 0:
-                    SDL_SetRenderDrawColor(screenRenderer, 255, 255, 255, 255);
-                    break;
-                case 1:
-                    SDL_SetRenderDrawColor(screenRenderer, 192, 192, 192, 255);
-                    break;
-                case 2:
-                    SDL_SetRenderDrawColor(screenRenderer, 64, 64, 64, 255);
-                    break;
-                case 3:
-                    SDL_SetRenderDrawColor(screenRenderer, 0, 0, 0, 255);
-                    break;
-                }
-                SDL_RenderDrawPoint(screenRenderer, x, LY);
+            case 0:
+                SDL_SetRenderDrawColor(screenRenderer, 255, 255, 255, 255);
+                break;
+            case 1:
+                SDL_SetRenderDrawColor(screenRenderer, 192, 192, 192, 255);
+                break;
+            case 2:
+                SDL_SetRenderDrawColor(screenRenderer, 64, 64, 64, 255);
+                break;
+            case 3:
+                SDL_SetRenderDrawColor(screenRenderer, 0, 0, 0, 255);
+                break;
             }
+            SDL_RenderDrawPoint(screenRenderer, x, LY);
+        }
     }
 }

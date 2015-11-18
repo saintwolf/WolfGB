@@ -159,3 +159,9 @@ void GDDB::DebugCommand()
     cout << endl;
     enabled = !enabled;
 }
+
+void GDDB::ResetCommand()
+{
+    cout << "Resetting WolfGB" << endl;
+    z80->Reset();
+}

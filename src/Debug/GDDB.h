@@ -25,6 +25,7 @@ class GDDB
         void HelpCommand();
         void BreakCommand(string bp);
         void DebugCommand();
+        void ResetCommand();
 
         uint16_t BreakPoint = 0;
 
