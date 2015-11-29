@@ -50,14 +50,25 @@ int main(int argc, char *argv[])
 
     int startTime = SDL_GetTicks();
 
+    SDL_Event e;
+
     while (running)
     {
+        while (SDL_PollEvent(&e) != 0)
+        {
+            // User requests quit
+            if (e.type == SDL_QUIT)
+            {
+                running = false;
+            }
+        }
+
         gddb->Step();
         cpuClock += z80->Step();
 
         if (cpuClock > CPUCLOCK_FRAME_TICKS)
         {
-            SDL_Delay(1000.f / 60);
+            //SDL_Delay(1000.f / 60);
             cpuClock = 0;
             startTime = SDL_GetTicks();
         }

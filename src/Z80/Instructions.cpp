@@ -911,7 +911,7 @@ int Instructions::LDNNmr_a()
 }
 int Instructions::LDrNNm_a()
 {
-    registers->a = mmu->ReadByte(LoadImmediate8());
+    registers->a = mmu->ReadByte(LoadImmediate16());
     return 0;
 }
 

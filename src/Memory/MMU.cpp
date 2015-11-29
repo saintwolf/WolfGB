@@ -140,6 +140,7 @@ uint8_t* MMU::GetMemoryPtr(uint16_t address)
                 if (address == 0xFFFF)
                 {
                     // @todo Interrupt Enable?
+                    return &dummyVar;
                 }
                 // High RAM
                 else
