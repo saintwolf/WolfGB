@@ -29,16 +29,6 @@ class GPU: public IMemoryDevice
 
         uint8_t* GetMemoryPtr(uint16_t address);
 
-        // Functions to obtain information from LCDC 0xFF40
-        bool LcdEnabled(); // bit 7
-        uint16_t GetWindowTileMapAddress();
-        bool WindowEnabled();
-        uint16_t GetTileDataAddress(uint16_t tileMapAddress);
-        uint16_t GetBgTileMapAddress(); // 9800-9BFF if off, 9C00-9FFF if on
-        bool ObjectSize(); // False = 8x8, True = 8x16
-        bool ObjectEnabled();
-        bool BackgroundEnabled(); // bit 0
-
     protected:
     private:
         ModeFlags lineMode;
@@ -66,7 +56,21 @@ class GPU: public IMemoryDevice
 
         // Renders scanline
         void RenderScanLine();
+        void RenderBgLine();
+        void RenderWindowLine();
+        void RenderOAMLine();
+
         void SetPixel(SDL_Renderer* renderer, uint8_t x, uint8_t y, uint8_t colour);
+
+        // Functions to obtain information from LCDC 0xFF40
+        bool LcdEnabled(); // bit 7
+        uint16_t GetWindowTileMapAddress();
+        bool WindowEnabled();
+        uint16_t GetTileDataAddress(uint16_t tileMapAddress);
+        uint16_t GetBgTileMapAddress(); // 9800-9BFF if off, 9C00-9FFF if on
+        bool ObjectSize(); // False = 8x8, True = 8x16
+        bool ObjectEnabled();
+        bool BackgroundEnabled(); // bit 0
 
         uint16_t dummyVar = 0;
 };

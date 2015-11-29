@@ -135,7 +135,7 @@ uint8_t* GPU::GetMemoryPtr(uint16_t address)
     case 0xF000:
         if ((address & 0xFF00) == 0xFE)
         {
-            // @todo OAM
+            return &oam[address & 0x9F];
         }
         else if ((address & 0xFFF0) == 0xFF40)
         {
@@ -172,6 +172,72 @@ uint8_t* GPU::GetMemoryPtr(uint16_t address)
 //        printf("UNSUPPORTED GPU MEMORY LOCATION: 0x%X", address);
 //        return &0;
     }
+}
+
+void GPU::RenderScanLine()
+{
+    RenderBgLine();
+    RenderWindowLine();
+}
+
+void GPU::RenderBgLine()
+{
+    uint16_t tileMapAddress = GetBgTileMapAddress();
+    uint16_t tileDataAddress = GetTileDataAddress(tileMapAddress);
+
+    uint8_t tileLow = ReadByte(tileDataAddress);
+    uint8_t tileHigh = ReadByte(tileDataAddress + 1);
+    int tileX = ScrollX >> 3;
+
+    for (int x = 0; x < ScreenWidth; x++)
+    {
+        // Draw the current tile
+        uint8_t paletteColour = tileLow >> (7 - tileX) & 0x1;
+        paletteColour |= (tileHigh >> (7 - tileX) & 0x1) << 1;
+        uint8_t colourFromPal = (BGPalette >> paletteColour * 2) & 0x3;
+
+        SetPixel(windowRenderer, x, LY, colourFromPal);
+
+        tileX++;
+        if (tileX == 8)
+        {
+            // Finished with this tile, go to the next one
+            tileX = 0;
+            tileMapAddress++;
+            tileDataAddress = GetTileDataAddress(tileMapAddress);
+            tileLow = ReadByte(tileDataAddress);
+            tileHigh = ReadByte(tileDataAddress + 1);
+        }
+    }
+
+}
+
+void GPU::RenderWindowLine()
+{
+
+}
+
+void GPU::SetPixel(SDL_Renderer* renderer, uint8_t x, uint8_t y, uint8_t colour)
+{
+    switch (colour)
+        {
+        case 0:
+            SDL_SetRenderDrawColor(windowRenderer, 255, 255, 255, 255);
+            break;
+        case 1:
+            SDL_SetRenderDrawColor(windowRenderer, 170, 170, 170, 255);
+            break;
+        case 2:
+            SDL_SetRenderDrawColor(windowRenderer, 85, 85, 85, 255);
+            break;
+        case 3:
+            SDL_SetRenderDrawColor(windowRenderer, 0, 0, 0, 255);
+            break;
+        default:
+            printf("GPU: Invalid colour from palette: %i\n", colour);
+        }
+
+        SDL_RenderDrawPoint(windowRenderer, x, y);
 }
 
 bool GPU::LcdEnabled()
@@ -242,59 +308,4 @@ bool GPU::ObjectEnabled()
 bool GPU::BackgroundEnabled()
 {
     return LCDC & 1;
-}
-
-void GPU::RenderScanLine()
-{
-    uint16_t tileMapAddress = GetBgTileMapAddress();
-    uint16_t tileDataAddress = GetTileDataAddress(tileMapAddress);
-
-    uint8_t tileLow = ReadByte(tileDataAddress);
-    uint8_t tileHigh = ReadByte(tileDataAddress + 1);
-    int tileX = ScrollX >> 3;
-
-    for (int x = 0; x < ScreenWidth; x++)
-    {
-        // Draw the current tile
-        uint8_t paletteColour = tileLow >> (7 - tileX) & 0x1;
-        paletteColour |= (tileHigh >> (7 - tileX) & 0x1) << 1;
-        uint8_t colourFromPal = (BGPalette >> paletteColour * 2) & 0x3;
-
-        SetPixel(windowRenderer, x, LY, colourFromPal);
-
-        tileX++;
-        if (tileX == 8)
-        {
-            // Finished with this tile, go to the next one
-            tileX = 0;
-            tileMapAddress++;
-            tileDataAddress = GetTileDataAddress(tileMapAddress);
-            tileLow = ReadByte(tileDataAddress);
-            tileHigh = ReadByte(tileDataAddress + 1);
-        }
-    }
-
-}
-
-void GPU::SetPixel(SDL_Renderer* renderer, uint8_t x, uint8_t y, uint8_t colour)
-{
-    switch (colour)
-        {
-        case 0:
-            SDL_SetRenderDrawColor(windowRenderer, 255, 255, 255, 255);
-            break;
-        case 1:
-            SDL_SetRenderDrawColor(windowRenderer, 170, 170, 170, 255);
-            break;
-        case 2:
-            SDL_SetRenderDrawColor(windowRenderer, 85, 85, 85, 255);
-            break;
-        case 3:
-            SDL_SetRenderDrawColor(windowRenderer, 0, 0, 0, 255);
-            break;
-        default:
-            printf("GPU: Invalid colour from palette: %i\n", colour);
-        }
-
-        SDL_RenderDrawPoint(windowRenderer, x, y);
 }
