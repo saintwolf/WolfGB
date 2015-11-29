@@ -4,7 +4,7 @@
 #include <SDL.h>
 #include <stdint.h>
 #include "Z80/Registers.h"
-#include "Memory/MemorySizes.h"
+#include "IMemoryDevice.h"
 
 enum class ModeFlags
 {
@@ -14,7 +14,7 @@ enum class ModeFlags
     OAMWrite = 3, // Writing OAM data to display driver
 };
 
-class GPU
+class GPU: public IMemoryDevice
 {
     public:
         GPU();
@@ -25,15 +25,15 @@ class GPU
 
         void Reset();
         void Step(uint8_t clockCycles);
-        void SetScreenRenderer(SDL_Renderer* renderer);
+        void SetRenderer(SDL_Renderer* renderer);
 
-        uint8_t& GetMemoryRef(uint16_t address);
+        uint8_t* GetMemoryPtr(uint16_t address);
 
         // Functions to obtain information from LCDC 0xFF40
         bool LcdEnabled(); // bit 7
         uint16_t GetWindowTileMapAddress();
         bool WindowEnabled();
-        uint16_t GetTileDataAddress();
+        uint16_t GetTileDataAddress(uint16_t tileMapAddress);
         uint16_t GetBgTileMapAddress(); // 9800-9BFF if off, 9C00-9FFF if on
         bool ObjectSize(); // False = 8x8, True = 8x16
         bool ObjectEnabled();
@@ -42,7 +42,7 @@ class GPU
     protected:
     private:
         ModeFlags lineMode;
-        uint8_t modeClock;
+        uint16_t modeClock;
 
         // GPU IO Registers
         uint8_t LCDC; // LCD Control (0xFF40)
@@ -58,18 +58,17 @@ class GPU
         uint8_t WinPosY; // Window Y position
         uint8_t WinPosX; // Window X position
 
-        uint8_t vram[VIDEO_RAM_SIZE];
-        uint8_t oam[OAM_SIZE];
-
-        uint8_t LineBuffer[ScreenWidth];
+        uint8_t vram[MemorySizes.VIDEO_RAM_SIZE];
+        uint8_t oam[MemorySizes.OAM_SIZE];
 
         // Pointer to the screen
-        SDL_Renderer* screenRenderer;
+        SDL_Renderer* windowRenderer;
 
         // Renders scanline
         void RenderScanLine();
+        void SetPixel(SDL_Renderer* renderer, uint8_t x, uint8_t y, uint8_t colour);
 
-
+        uint16_t dummyVar = 0;
 };
 
 #endif // GPU_H

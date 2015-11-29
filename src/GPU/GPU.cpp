@@ -1,11 +1,11 @@
 #include "GPU.h"
-#include "Memory/IORegisters.h"
 
 #include "stdio.h"
+#include <unistd.h>
 
 GPU::GPU()
 {
-    screenRenderer = NULL;
+    windowRenderer = NULL;
     Reset();
 }
 
@@ -15,19 +15,16 @@ GPU::~GPU()
 
 void GPU::Reset()
 {
-    // Clear screen
-    for (int x = 0; x < ScreenWidth; x++)
+    if (windowRenderer != NULL)
     {
-        for (int y = 0; y < ScreenHeight; y++)
-        {
-            SDL_RenderDrawPoint(screenRenderer, x, y);
-        }
+        // Clear screen
+        SDL_SetRenderDrawColor(windowRenderer, 0, 0, 0, 255);
+        SDL_RenderClear(windowRenderer);
+
+        SDL_RenderPresent(windowRenderer);
     }
-
-    SDL_RenderPresent(screenRenderer);
-
     // Clear OAM
-    for (int i = 0; i < OAM_SIZE; i++)
+    for (int i = 0; i < MemorySizes.OAM_SIZE; i++)
     {
         oam[i] = 0;
     }
@@ -50,11 +47,16 @@ void GPU::Reset()
 
 void GPU::Step(uint8_t clockCycles)
 {
+    if (!LcdEnabled())
+    {
+        return;
+    }
+
     modeClock += clockCycles;
     switch (lineMode)
     {
     case ModeFlags::OAMRead:
-        if (modeClock >= 20)
+        if (modeClock >= 80)
         {
             // Enter mode 3
             modeClock = 0;
@@ -76,34 +78,34 @@ void GPU::Step(uint8_t clockCycles)
     // HBlank
     // After the last HBlank, update the screen
     case ModeFlags::HBlank:
-        if (modeClock >= 51)
+        if (modeClock >= 204)
         {
+            LY++;
+            modeClock = 0;
+
             // End of hblank for last scanline; render screen
-            if (LY == 143)
+            if (LY == 144)
             {
                 // Enter VBlank
                 lineMode = ModeFlags::VBlank;
-                SDL_RenderPresent(screenRenderer);
+                SDL_RenderPresent(windowRenderer);
+                usleep((1000 / 60) * 1000);
             }
             // Go to OAM Read mode for next line
             else
             {
                 lineMode = ModeFlags::OAMRead;
             }
-            LY++;
-            modeClock = 0;
-
         }
-
         break;
 
     case ModeFlags::VBlank:
-        if (modeClock >= 114)
+        if (modeClock >= 456)
         {
             modeClock = 0;
             LY++;
 
-            if (LY > 153)
+            if (LY == 154)
             {
                 // Restart scanning modes
                 lineMode = ModeFlags::OAMRead;
@@ -116,19 +118,19 @@ void GPU::Step(uint8_t clockCycles)
     }
 }
 
-void GPU::SetScreenRenderer(SDL_Renderer* renderer)
+void GPU::SetRenderer(SDL_Renderer* renderer)
 {
-    this->screenRenderer = renderer;
+    this->windowRenderer = renderer;
 }
 
-uint8_t& GPU::GetMemoryRef(uint16_t address)
+uint8_t* GPU::GetMemoryPtr(uint16_t address)
 {
     switch (address & 0xF000)
     {
     // Video/Graphics RAM
     case 0x8000:
     case 0x9000:
-        return vram[address & 0x1FFF];
+        return &vram[address & 0x1FFF];
 
     case 0xF000:
         if ((address & 0xFF00) == 0xFE)
@@ -138,37 +140,37 @@ uint8_t& GPU::GetMemoryRef(uint16_t address)
         else if ((address & 0xFFF0) == 0xFF40)
         {
             // GPU IO Registers
-            switch (address)
+            switch ((IORegisters)address)
             {
-            case IORegisters.LCDC: // 0xFF40
-                return LCDC;
-            case IORegisters.STAT:
-                return STAT;
-            case IORegisters.SCY:
-                return ScrollY;
-            case IORegisters.SCX:
-                return ScrollX;
-            case IORegisters.LY:
-                return LY;
-            case IORegisters.LYC:
-                return LYC;
-            case IORegisters.DMA:
-                return DMA;
-            case IORegisters.BGP:
-                return BGPalette;
-            case IORegisters.OBP0:
-                return ObjPalette0;
-            case IORegisters.OBP1:
-                return ObjPalette1;
-            case IORegisters.WY:
-                return WinPosY;
-            case IORegisters.WX:
-                return WinPosX;
+            case IORegisters::LCDC: // 0xFF40
+                return &LCDC;
+            case IORegisters::STAT:
+                return &STAT;
+            case IORegisters::SCY:
+                return &ScrollY;
+            case IORegisters::SCX:
+                return &ScrollX;
+            case IORegisters::LY:
+                return &LY;
+            case IORegisters::LYC:
+                return &LYC;
+            case IORegisters::DMA:
+                return &DMA;
+            case IORegisters::BGP:
+                return &BGPalette;
+            case IORegisters::OBP0:
+                return &ObjPalette0;
+            case IORegisters::OBP1:
+                return &ObjPalette1;
+            case IORegisters::WY:
+                return &WinPosY;
+            case IORegisters::WX:
+                return &WinPosX;
             }
         }
 //    default:
 //        printf("UNSUPPORTED GPU MEMORY LOCATION: 0x%X", address);
-//        return 0;
+//        return &0;
     }
 }
 
@@ -190,20 +192,46 @@ bool GPU::WindowEnabled()
     return LCDC >> 5 & 1;
 }
 
-uint16_t GPU::GetTileDataAddress()
-{
-    if (LCDC >> 4 & 1)
-        return 0x8000;
-    else
-        return 0x8800;
-}
-
+/** @brief Gets the tilemap address
+ * Returns the tilemap address of the tile located at the start of the scanline
+ * ((SCY + LY) * 32 + SCX)
+ *
+ * @return uint16_t
+ *
+ */
 uint16_t GPU::GetBgTileMapAddress()
 {
-    if (LCDC >> 3 & 1)
-        return 0x9C00;
+    uint16_t memoryAdd = (LCDC >> 3 & 1) == 0 ? 0x9800 : 0x9C00; // Get base address
+    memoryAdd += ((ScrollY + LY & 0xFF) >> 3) * 32; // point to the correct line
+    memoryAdd += ScrollX >> 3; // point to the start of the scanline
+    return memoryAdd;
+}
+
+/** @brief Gets the tile data address
+ * Gets the tile data address for the index given at tileMapAddress
+ *
+ * @param tileDataAddress uint8_t
+ * @return uint16_t
+ *
+ */
+uint16_t GPU::GetTileDataAddress(uint16_t tileMapAddress)
+{
+    uint8_t tileNum = ReadByte(tileMapAddress);
+    uint16_t tileDataAddress = (LCDC >> 4 & 1) == 0 ? 0x9000 : 0x8000;
+
+    if (tileDataAddress == 0x9000)
+    {
+        // Cast to signed integer when we use tilenum
+        tileDataAddress += (int8_t)tileNum * 16;
+    }
     else
-        return 0x9800;
+    {
+        tileDataAddress += tileNum * 16;
+    }
+
+    // Point to the correct row within the tile
+    tileDataAddress += (ScrollY + LY & 0x7) * 2;
+    return tileDataAddress;
 }
 
 bool GPU::ObjectEnabled()
@@ -218,83 +246,55 @@ bool GPU::BackgroundEnabled()
 
 void GPU::RenderScanLine()
 {
-    // Work out on which row we're rendering from the tile map
-    uint8_t offsetY = LY + ScrollY;
+    uint16_t tileMapAddress = GetBgTileMapAddress();
+    uint16_t tileDataAddress = GetTileDataAddress(tileMapAddress);
 
-    // Loop through each pixel on the line
-    for (uint8_t currentX = 0; currentX < ScreenWidth; currentX++)
+    uint8_t tileLow = ReadByte(tileDataAddress);
+    uint8_t tileHigh = ReadByte(tileDataAddress + 1);
+    int tileX = ScrollX >> 3;
+
+    for (int x = 0; x < ScreenWidth; x++)
     {
-        // Work out the pixel that we will be rendering
-        uint8_t offsetX = ScrollX + currentX;
+        // Draw the current tile
+        uint8_t paletteColour = tileLow >> (7 - tileX) & 0x1;
+        paletteColour |= (tileHigh >> (7 - tileX) & 0x1) << 1;
+        uint8_t colourFromPal = (BGPalette >> paletteColour * 2) & 0x3;
 
-        uint8_t mapOffsetX = offsetX >> 3;
-        uint8_t mapOffsetY = offsetY >> 3;
+        SetPixel(windowRenderer, x, LY, colourFromPal);
 
-        uint8_t tileDataIndex = GetMemoryRef(GetBgTileMapAddress() + mapOffsetX * 32 + mapOffsetY);
-
-        if (GetTileDataAddress() == 0x8800)
+        tileX++;
+        if (tileX == 8)
         {
-            // We need to convert the signed integer into an unsigned integer
-            // Let's shift it right 7 bits and clear all other bits
-            if (tileDataIndex >> 7 & 1)
-            {
-                // If the sign bit it set, then add 128 to it
-                tileDataIndex += 128;
-            }
-            else
-            {
-                // Otherwise, subtract 128 from it
-                tileDataIndex -= 128;
-            }
-        }
-
-        // X and Y coordinate within the tile
-        uint8_t tileX = offsetX % 8;
-        uint8_t tileY = offsetY % 8;
-
-        // Points us to the correct Y line in the tile
-        // There are 2 bytes per X line
-        uint8_t dataAddress = tileDataIndex * 16 + tileY * 2;
-
-        // If the X value is higher than 3, we need to point to the second byte
-        if (tileX > 3)
-        {
-            dataAddress++;
-        }
-
-        // Grab the tile data from memory
-        uint8_t tileData = GetMemoryRef(GetTileDataAddress() + tileDataIndex);
-
-        // AND tileX with 3 to get the pixel number of the byte
-        tileX &= 3;
-
-        // Shift the tile value to get the pixel we need
-        uint8_t pixel = tileData >> 2 * tileX;
-        // Clear the rest of the byte
-        pixel &= 0x3;
-
-        LineBuffer[currentX] = pixel;
-
-        for (int x = 0; x < ScreenWidth; x++)
-        {
-            uint8_t colour = LineBuffer[x];
-            uint8_t colourFromPal = BGPalette >> colour * 2;
-            switch (colourFromPal)
-            {
-            case 0:
-                SDL_SetRenderDrawColor(screenRenderer, 255, 255, 255, 255);
-                break;
-            case 1:
-                SDL_SetRenderDrawColor(screenRenderer, 192, 192, 192, 255);
-                break;
-            case 2:
-                SDL_SetRenderDrawColor(screenRenderer, 64, 64, 64, 255);
-                break;
-            case 3:
-                SDL_SetRenderDrawColor(screenRenderer, 0, 0, 0, 255);
-                break;
-            }
-            SDL_RenderDrawPoint(screenRenderer, x, LY);
+            // Finished with this tile, go to the next one
+            tileX = 0;
+            tileMapAddress++;
+            tileDataAddress = GetTileDataAddress(tileMapAddress);
+            tileLow = ReadByte(tileDataAddress);
+            tileHigh = ReadByte(tileDataAddress + 1);
         }
     }
+
+}
+
+void GPU::SetPixel(SDL_Renderer* renderer, uint8_t x, uint8_t y, uint8_t colour)
+{
+    switch (colour)
+        {
+        case 0:
+            SDL_SetRenderDrawColor(windowRenderer, 255, 255, 255, 255);
+            break;
+        case 1:
+            SDL_SetRenderDrawColor(windowRenderer, 170, 170, 170, 255);
+            break;
+        case 2:
+            SDL_SetRenderDrawColor(windowRenderer, 85, 85, 85, 255);
+            break;
+        case 3:
+            SDL_SetRenderDrawColor(windowRenderer, 0, 0, 0, 255);
+            break;
+        default:
+            printf("GPU: Invalid colour from palette: %i\n", colour);
+        }
+
+        SDL_RenderDrawPoint(windowRenderer, x, y);
 }

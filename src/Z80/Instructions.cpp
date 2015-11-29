@@ -26,7 +26,8 @@ uint16_t Instructions::LoadImmediate16()
 {
     uint8_t low = mmu->ReadByte(registers->pc++);
     uint8_t high = mmu->ReadByte(registers->pc++);
-    return low + (high << 8);
+    uint16_t data = low + (high << 8);
+    return data;
 }
 
 void Instructions::PushStack(uint16_t data)
@@ -138,14 +139,13 @@ void Instructions::CheckCarry(uint16_t a, uint16_t b, bool carryIn)
 */
 void Instructions::CheckHalfBorrow(uint8_t a, uint8_t b, bool carryIn)
 {
-    b += carryIn;
-    if ((a & 0x0F) < (b & 0x0F))
+    if ((a & 0x0F) < (b & 0x0F) + carryIn)
     {
-        registers->ClearFlag(Flags::H);
+        registers->SetFlag(Flags::H);
     }
     else
     {
-        registers->SetFlag(Flags::H);
+        registers->ClearFlag(Flags::H);
     }
 }
 
@@ -192,45 +192,45 @@ void Instructions::CheckZero(uint8_t result)
 
 // A group of functions to reduce duplicated code for some of the opcodes.
 
-void Instructions::LDrn(uint8_t& reg)
+void Instructions::LDrn(uint8_t* reg)
 {
-    reg = LoadImmediate8();
+    *reg = LoadImmediate8();
 }
 
-void Instructions::LDrr(uint8_t& dest, uint8_t& source)
+void Instructions::LDrr(uint8_t* dest, uint8_t* source)
 {
-    dest = source;
+    *dest = *source;
 }
 
-void Instructions::LDrRRm(uint8_t& dest, uint16_t& source)
+void Instructions::LDrRRm(uint8_t* dest, uint16_t* source)
 {
-    dest = mmu->ReadByte(source);
+    *dest = mmu->ReadByte(*source);
 }
 
-void Instructions::LDRRmr(uint16_t& dest, uint8_t& source)
+void Instructions::LDRRmr(uint16_t* dest, uint8_t* source)
 {
-    mmu->WriteByte(dest, source);
+    mmu->WriteByte(*dest, *source);
 }
 
-void Instructions::PUSHRR(uint16_t& reg)
+void Instructions::PUSHRR(uint16_t* reg)
 {
-    PushStack(reg);
+    PushStack(*reg);
 }
 
-void Instructions::POPRR(uint16_t& reg)
+void Instructions::POPRR(uint16_t* reg)
 {
-    reg = PopStack();
+    *reg = PopStack();
 }
 
-void Instructions::ADDAr(uint8_t& reg)
+void Instructions::ADDAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
-    CheckCarry(registers->a, reg);
-    registers->a += reg;
+    CheckCarry(registers->a, *reg);
+    registers->a += *reg;
     CheckZero(registers->a);
 }
 
-void Instructions::ADCAr(uint8_t& reg)
+void Instructions::ADCAr(uint8_t* reg)
 {
     bool carry = false;
     if (registers->GetFlag(Flags::C) > 0)
@@ -238,20 +238,20 @@ void Instructions::ADCAr(uint8_t& reg)
         carry = true;
     }
     registers->ClearFlag(Flags::N);
-    CheckCarry(registers->a, reg, carry);
-    registers->a = reg + (uint8_t) carry;
+    CheckCarry(registers->a, *reg, carry);
+    registers->a = *reg + (uint8_t) carry;
     CheckZero(registers->a);
 }
 
-void Instructions::SUBAr(uint8_t& reg)
+void Instructions::SUBAr(uint8_t* reg)
 {
     registers->SetFlag(Flags::N);
-    CheckBorrow(registers->a, reg);
-    registers->a -= reg;
+    CheckBorrow(registers->a, *reg);
+    registers->a -= *reg;
     CheckZero(registers->a);
 }
 
-void Instructions::SBCAr(uint8_t& reg)
+void Instructions::SBCAr(uint8_t* reg)
 {
     bool carry = false;
     if (registers->GetFlag(Flags::C) > 0)
@@ -259,43 +259,43 @@ void Instructions::SBCAr(uint8_t& reg)
         carry = true;
     }
     registers->SetFlag(Flags::N);
-    CheckBorrow(registers->a, reg, carry);
-    registers->a -= reg + (uint8_t)carry;
+    CheckBorrow(registers->a, *reg, carry);
+    registers->a -= *reg + (uint8_t)carry;
     CheckZero(registers->a);
 }
 
-void Instructions::ANDAr(uint8_t& reg)
+void Instructions::ANDAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::C);
     registers->SetFlag(Flags::H);
-    registers->a &= reg;
+    registers->a &= *reg;
     CheckZero(registers->a);
 }
 
-void Instructions::ORAr(uint8_t& reg)
+void Instructions::ORAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
     registers->ClearFlag(Flags::C);
-    registers->a |= reg;
+    registers->a |= *reg;
     CheckZero(registers->a);
 }
 
-void Instructions::XORAr(uint8_t& reg)
+void Instructions::XORAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
     registers->ClearFlag(Flags::C);
-    registers->a ^= reg;
+    registers->a ^= *reg;
     CheckZero(registers->a);
 }
 
-void Instructions::CPr(uint8_t& reg)
+void Instructions::CPr(uint8_t* reg)
 {
     registers->SetFlag(Flags::N);
-    CheckBorrow(registers->a, reg);
-    if (reg == registers->a)
+    CheckBorrow(registers->a, *reg);
+    if (*reg == registers->a)
     {
         registers->SetFlag(Flags::Z);
     }
@@ -305,35 +305,35 @@ void Instructions::CPr(uint8_t& reg)
     }
 }
 
-void Instructions::INCr(uint8_t& reg)
+void Instructions::INCr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
-    CheckCarry(reg, 1, false);
-    CheckZero(++reg);
+    CheckHalfCarry(*reg, 1, false);
+    CheckZero(++*reg);
 }
 
-void Instructions::DECr(uint8_t& reg)
+void Instructions::DECr(uint8_t* reg)
 {
     registers->SetFlag(Flags::N);
-    CheckBorrow(reg, 1, false);
-    CheckZero(--reg);
+    CheckHalfBorrow(*reg, 1, false);
+    CheckZero(--*reg);
 }
 
-void Instructions::ADDHLRR(uint16_t& reg)
+void Instructions::ADDHLRR(uint16_t* reg)
 {
     registers->ClearFlag(Flags::N);
-    CheckCarry(registers->hl, reg, false);
-    registers->hl += reg;
+    CheckCarry(registers->hl, *reg, false);
+    registers->hl += *reg;
 }
 
-void Instructions::INCRR(uint16_t& reg)
+void Instructions::INCRR(uint16_t* reg)
 {
-    (reg)++;
+    (*reg)++;
 }
 
-void Instructions::DECRR(uint16_t& reg)
+void Instructions::DECRR(uint16_t* reg)
 {
-    (reg)--;
+    (*reg)--;
 }
 
 void Instructions::RSTN(uint8_t offset)
@@ -348,15 +348,15 @@ void Instructions::RSTN(uint8_t offset)
  * @return void
  *
  */
-void Instructions::CBRLCr(uint8_t& reg)
+void Instructions::CBRLCr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    int carry = reg >> 7 & 0x1; // Set Carry to the 7th bit of reg, and shift to LSB
-    reg <<= 1;
-    reg |= carry; // Add the carry to the 0th bit
+    int carry = *reg >> 7 & 0x1; // Set Carry to the 7th bit of reg, and shift to LSB
+    *reg <<= 1;
+    *reg |= carry; // Add the carry to the 0th bit
     carry ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag as per carry var
-    CheckZero(reg);
+    CheckZero(*reg);
 }
 
 /** @brief Shifts register one left. 7th bit moved to carry flag, carry flag moved to bit 0.
@@ -365,15 +365,15 @@ void Instructions::CBRLCr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBRLr(uint8_t& reg)
+void Instructions::CBRLr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    int carry = reg >> 7 & 0x1;
-    reg <<= 1;
-    registers->GetFlag(Flags::C) ? reg |= 0x01 : reg |= 0x00; // Set 0th bit to carry flag
+    int carry = *reg >> 7 & 0x1;
+    *reg <<= 1;
+    registers->GetFlag(Flags::C) ? *reg |= 0x01 : *reg |= 0x00; // Set 0th bit to carry flag
     carry ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag as per carry var
-    CheckZero(reg);
+    CheckZero(*reg);
 }
 
 /** @brief Shifts register one right. 0th bit is moved to carry flag and bit 7
@@ -382,15 +382,15 @@ void Instructions::CBRLr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBRRCr(uint8_t& reg)
+void Instructions::CBRRCr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    int carry = reg << 7 & 0x80;
-    reg >>= 1;
-    reg |= carry; // Add the carry to the 7th bit
+    int carry = *reg << 7 & 0x80;
+    *reg >>= 1;
+    *reg |= carry; // Add the carry to the 7th bit
     carry ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag as per carry var
-    CheckZero(reg);
+    CheckZero(*reg);
 }
 
 /** @brief Shifts register one right. 0th bit is moved to carry flag, carry is moved to bit 7
@@ -399,15 +399,15 @@ void Instructions::CBRRCr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBRRr(uint8_t& reg)
+void Instructions::CBRRr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    int carry = reg << 7 & 0x80; // Save bit 0, to move to carry
-    reg >>= 1;
-    registers->GetFlag(Flags::C) ? reg |= 0x80 : reg |= 0x00; // Set 7th bit to carry flag // Set 7th bit to carry
+    int carry = *reg << 7 & 0x80; // Save bit 0, to move to carry
+    *reg >>= 1;
+    registers->GetFlag(Flags::C) ? *reg |= 0x80 : *reg |= 0x00; // Set 7th bit to carry flag // Set 7th bit to carry
     carry ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag as per carry var
-    CheckZero(reg);
+    CheckZero(*reg);
 }
 
 /** @brief Shifts register one left. 7th bit is moved to carry flag
@@ -416,13 +416,13 @@ void Instructions::CBRRr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBSLAr(uint8_t& reg)
+void Instructions::CBSLAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    reg & 0x80 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
-    reg <<= 1;
-    CheckZero(reg);
+    *reg & 0x80 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
+    *reg <<= 1;
+    CheckZero(*reg);
 }
 
 /** @brief Shifts register one right. 0th bit is moves to carry flag
@@ -431,13 +431,13 @@ void Instructions::CBSLAr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBSRAr(uint8_t& reg)
+void Instructions::CBSRAr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    reg & 0x1 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
-    reg >>= 1;
-    CheckZero(reg);
+    *reg & 0x1 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
+    *reg >>= 1;
+    CheckZero(*reg);
 }
 
 /** @brief The contents of reg are shifted right 1 bit position
@@ -448,14 +448,14 @@ void Instructions::CBSRAr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBSRLr(uint8_t& reg)
+void Instructions::CBSRLr(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
-    reg & 0x1 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
-    reg >>= 1;
-    reg &= 0x80; // Reset bit 7, just in case
-    CheckZero(reg);
+    *reg & 0x1 ? registers->SetFlag(Flags::C) : registers->ClearFlag(Flags::C); // Set carry flag to bit 7
+    *reg >>= 1;
+    *reg &= 0x80; // Reset bit 7, just in case
+    CheckZero(*reg);
 }
 
 /** @brief Test bit b in register reg and sets Z flag accordingly
@@ -465,11 +465,11 @@ void Instructions::CBSRLr(uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBBITbr(uint8_t b, uint8_t& reg)
+void Instructions::CBBITbr(uint8_t b, uint8_t* reg)
 {
     registers->SetFlag(Flags::H);
     registers->ClearFlag(Flags::N);
-    CheckZero(reg >> b & 1);
+    CheckZero(*reg >> b & 1);
 }
 
 /** @brief Set bit b in register reg. No flags affected.
@@ -479,9 +479,9 @@ void Instructions::CBBITbr(uint8_t b, uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBSETbr(uint8_t b, uint8_t& reg)
+void Instructions::CBSETbr(uint8_t b, uint8_t* reg)
 {
-    reg |= 1 << b;
+    *reg |= 1 << b;
 }
 
 /** @brief Reset bit b in register reg. No flags affected.
@@ -491,9 +491,9 @@ void Instructions::CBSETbr(uint8_t b, uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBRESbr(uint8_t b, uint8_t& reg)
+void Instructions::CBRESbr(uint8_t b, uint8_t* reg)
 {
-    reg &= ~(1 << b);
+    *reg &= ~(1 << b);
 }
 
 /** @brief Swap upper and lower nibbles of n
@@ -502,20 +502,23 @@ void Instructions::CBRESbr(uint8_t b, uint8_t& reg)
  * @return void
  *
  */
-void Instructions::CBSWAPn(uint8_t& reg)
+void Instructions::CBSWAPn(uint8_t* reg)
 {
     registers->ClearFlag(Flags::N);
     registers->ClearFlag(Flags::H);
     registers->ClearFlag(Flags::C);
 
-    uint8_t upper = reg >> 4;
-    reg <<= 4;
-    reg += upper;
+    uint8_t upper = *reg >> 4;
+    *reg <<= 4;
+    *reg += upper;
 
-    if (reg == 0)
-        registers->SetFlag(Flags::Z);
-    else
-        registers->ClearFlag(Flags::Z);
+    CheckZero(*reg);
+}
+
+int Instructions::NOP()
+{
+    printf("NOP! PC: 0x%X\n", registers->pc - 1);
+    return 0;
 }
 
 //***********************//
@@ -524,375 +527,375 @@ void Instructions::CBSWAPn(uint8_t& reg)
 
 int Instructions::LDrn_a()
 {
-    LDrn(registers->a);
+    LDrn(&registers->a);
     return 0;
 }
 int Instructions::LDrn_b()
 {
-    LDrn(registers->b);
+    LDrn(&registers->b);
     return 0;
 }
 int Instructions::LDrn_c()
 {
-    LDrn(registers->c);
+    LDrn(&registers->c);
     return 0;
 }
 int Instructions::LDrn_d()
 {
-    LDrn(registers->d);
+    LDrn(&registers->d);
     return 0;
 }
 int Instructions::LDrn_e()
 {
-    LDrn(registers->e);
+    LDrn(&registers->e);
     return 0;
 }
 int Instructions::LDrn_h()
 {
-    LDrn(registers->h);
+    LDrn(&registers->h);
     return 0;
 }
 int Instructions::LDrn_l()
 {
-    LDrn(registers->l);
+    LDrn(&registers->l);
     return 0;
 }
 
 int Instructions::LDrr_aa()
 {
-    LDrr(registers->a, registers->a);
+    LDrr(&registers->a, &registers->a);
     return 0;
 }
 int Instructions::LDrr_ab()
 {
-    LDrr(registers->a, registers->b);
+    LDrr(&registers->a, &registers->b);
     return 0;
 }
 int Instructions::LDrr_ac()
 {
-    LDrr(registers->a, registers->c);
+    LDrr(&registers->a, &registers->c);
     return 0;
 }
 int Instructions::LDrr_ad()
 {
-    LDrr(registers->a, registers->d);
+    LDrr(&registers->a, &registers->d);
     return 0;
 }
 int Instructions::LDrr_ae()
 {
-    LDrr(registers->a, registers->e);
+    LDrr(&registers->a, &registers->e);
     return 0;
 }
 int Instructions::LDrr_ah()
 {
-    LDrr(registers->a, registers->h);
+    LDrr(&registers->a, &registers->h);
     return 0;
 }
 int Instructions::LDrr_al()
 {
-    LDrr(registers->a, registers->l);
+    LDrr(&registers->a, &registers->l);
     return 0;
 }
 int Instructions::LDrr_ba()
 {
-    LDrr(registers->b, registers->a);
+    LDrr(&registers->b, &registers->a);
     return 0;
 }
 int Instructions::LDrr_bb()
 {
-    LDrr(registers->b, registers->b);
+    LDrr(&registers->b, &registers->b);
     return 0;
 }
 int Instructions::LDrr_bc()
 {
-    LDrr(registers->b, registers->c);
+    LDrr(&registers->b, &registers->c);
     return 0;
 }
 int Instructions::LDrr_bd()
 {
-    LDrr(registers->b, registers->d);
+    LDrr(&registers->b, &registers->d);
     return 0;
 }
 int Instructions::LDrr_be()
 {
-    LDrr(registers->b, registers->e);
+    LDrr(&registers->b, &registers->e);
     return 0;
 }
 int Instructions::LDrr_bh()
 {
-    LDrr(registers->b, registers->h);
+    LDrr(&registers->b, &registers->h);
     return 0;
 }
 int Instructions::LDrr_bl()
 {
-    LDrr(registers->b, registers->l);
+    LDrr(&registers->b, &registers->l);
     return 0;
 }
 int Instructions::LDrr_ca()
 {
-    LDrr(registers->c, registers->a);
+    LDrr(&registers->c, &registers->a);
     return 0;
 }
 int Instructions::LDrr_cb()
 {
-    LDrr(registers->c, registers->b);
+    LDrr(&registers->c, &registers->b);
     return 0;
 }
 int Instructions::LDrr_cc()
 {
-    LDrr(registers->c, registers->c);
+    LDrr(&registers->c, &registers->c);
     return 0;
 }
 int Instructions::LDrr_cd()
 {
-    LDrr(registers->c, registers->d);
+    LDrr(&registers->c, &registers->d);
     return 0;
 }
 int Instructions::LDrr_ce()
 {
-    LDrr(registers->c, registers->e);
+    LDrr(&registers->c, &registers->e);
     return 0;
 }
 int Instructions::LDrr_ch()
 {
-    LDrr(registers->c, registers->h);
+    LDrr(&registers->c, &registers->h);
     return 0;
 }
 int Instructions::LDrr_cl()
 {
-    LDrr(registers->c, registers->l);
+    LDrr(&registers->c, &registers->l);
     return 0;
 }
 int Instructions::LDrr_da()
 {
-    LDrr(registers->d, registers->a);
+    LDrr(&registers->d, &registers->a);
     return 0;
 }
 int Instructions::LDrr_db()
 {
-    LDrr(registers->d, registers->b);
+    LDrr(&registers->d, &registers->b);
     return 0;
 }
 int Instructions::LDrr_dc()
 {
-    LDrr(registers->d, registers->c);
+    LDrr(&registers->d, &registers->c);
     return 0;
 }
 int Instructions::LDrr_dd()
 {
-    LDrr(registers->d, registers->d);
+    LDrr(&registers->d, &registers->d);
     return 0;
 }
 int Instructions::LDrr_de()
 {
-    LDrr(registers->d, registers->e);
+    LDrr(&registers->d, &registers->e);
     return 0;
 }
 int Instructions::LDrr_dh()
 {
-    LDrr(registers->d, registers->h);
+    LDrr(&registers->d, &registers->h);
     return 0;
 }
 int Instructions::LDrr_dl()
 {
-    LDrr(registers->d, registers->l);
+    LDrr(&registers->d, &registers->l);
     return 0;
 }
 int Instructions::LDrr_ea()
 {
-    LDrr(registers->e, registers->a);
+    LDrr(&registers->e, &registers->a);
     return 0;
 }
 int Instructions::LDrr_eb()
 {
-    LDrr(registers->e, registers->b);
+    LDrr(&registers->e, &registers->b);
     return 0;
 }
 int Instructions::LDrr_ec()
 {
-    LDrr(registers->e, registers->c);
+    LDrr(&registers->e, &registers->c);
     return 0;
 }
 int Instructions::LDrr_ed()
 {
-    LDrr(registers->e, registers->d);
+    LDrr(&registers->e, &registers->d);
     return 0;
 }
 int Instructions::LDrr_ee()
 {
-    LDrr(registers->e, registers->e);
+    LDrr(&registers->e, &registers->e);
     return 0;
 }
 int Instructions::LDrr_eh()
 {
-    LDrr(registers->e, registers->h);
+    LDrr(&registers->e, &registers->h);
     return 0;
 }
 int Instructions::LDrr_el()
 {
-    LDrr(registers->e, registers->l);
+    LDrr(&registers->e, &registers->l);
     return 0;
 }
 int Instructions::LDrr_ha()
 {
-    LDrr(registers->h, registers->a);
+    LDrr(&registers->h, &registers->a);
     return 0;
 }
 int Instructions::LDrr_hb()
 {
-    LDrr(registers->h, registers->b);
+    LDrr(&registers->h, &registers->b);
     return 0;
 }
 int Instructions::LDrr_hc()
 {
-    LDrr(registers->h, registers->c);
+    LDrr(&registers->h, &registers->c);
     return 0;
 }
 int Instructions::LDrr_hd()
 {
-    LDrr(registers->h, registers->d);
+    LDrr(&registers->h, &registers->d);
     return 0;
 }
 int Instructions::LDrr_he()
 {
-    LDrr(registers->h, registers->e);
+    LDrr(&registers->h, &registers->e);
     return 0;
 }
 int Instructions::LDrr_hh()
 {
-    LDrr(registers->h, registers->h);
+    LDrr(&registers->h, &registers->h);
     return 0;
 }
 int Instructions::LDrr_hl()
 {
-    LDrr(registers->h, registers->l);
+    LDrr(&registers->h, &registers->l);
     return 0;
 }
 int Instructions::LDrr_la()
 {
-    LDrr(registers->l, registers->a);
+    LDrr(&registers->l, &registers->a);
     return 0;
 }
 int Instructions::LDrr_lb()
 {
-    LDrr(registers->l, registers->b);
+    LDrr(&registers->l, &registers->b);
     return 0;
 }
 int Instructions::LDrr_lc()
 {
-    LDrr(registers->l, registers->c);
+    LDrr(&registers->l, &registers->c);
     return 0;
 }
 int Instructions::LDrr_ld()
 {
-    LDrr(registers->l, registers->d);
+    LDrr(&registers->l, &registers->d);
     return 0;
 }
 int Instructions::LDrr_le()
 {
-    LDrr(registers->l, registers->e);
+    LDrr(&registers->l, &registers->e);
     return 0;
 }
 int Instructions::LDrr_lh()
 {
-    LDrr(registers->l, registers->h);
+    LDrr(&registers->l, &registers->h);
     return 0;
 }
 int Instructions::LDrr_ll()
 {
-    LDrr(registers->l, registers->l);
+    LDrr(&registers->l, &registers->l);
     return 0;
 }
 
 int Instructions::LDrBCm_a()
 {
-    LDrRRm(registers->a, registers->bc);
+    LDrRRm(&registers->a, &registers->bc);
     return 0;
 }
 int Instructions::LDrDEm_a()
 {
-    LDrRRm(registers->a, registers->de);
+    LDrRRm(&registers->a, &registers->de);
     return 0;
 }
 int Instructions::LDrHLm_a()
 {
-    LDrRRm(registers->a, registers->hl);
+    LDrRRm(&registers->a, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_b()
 {
-    LDrRRm(registers->b, registers->hl);
+    LDrRRm(&registers->b, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_c()
 {
-    LDrRRm(registers->c, registers->hl);
+    LDrRRm(&registers->c, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_d()
 {
-    LDrRRm(registers->d, registers->hl);
+    LDrRRm(&registers->d, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_e()
 {
-    LDrRRm(registers->e, registers->hl);
+    LDrRRm(&registers->e, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_h()
 {
-    LDrRRm(registers->h, registers->hl);
+    LDrRRm(&registers->h, &registers->hl);
     return 0;
 }
 int Instructions::LDrHLm_l()
 {
-    LDrRRm(registers->l, registers->hl);
+    LDrRRm(&registers->l, &registers->hl);
     return 0;
 }
 
 int Instructions::LDBCmr_a()
 {
-    LDRRmr(registers->bc, registers->a);
+    LDRRmr(&registers->bc, &registers->a);
     return 0;
 }
 int Instructions::LDDEmr_a()
 {
-    LDRRmr(registers->de, registers->a);
+    LDRRmr(&registers->de, &registers->a);
     return 0;
 }
 int Instructions::LDHLmr_a()
 {
-    LDRRmr(registers->hl, registers->a);
+    LDRRmr(&registers->hl, &registers->a);
     return 0;
 }
 int Instructions::LDHLmr_b()
 {
-    LDRRmr(registers->hl, registers->b);
+    LDRRmr(&registers->hl, &registers->b);
     return 0;
 }
 int Instructions::LDHLmr_c()
 {
-    LDRRmr(registers->hl, registers->c);
+    LDRRmr(&registers->hl, &registers->c);
     return 0;
 }
 int Instructions::LDHLmr_d()
 {
-    LDRRmr(registers->hl, registers->d);
+    LDRRmr(&registers->hl, &registers->d);
     return 0;
 }
 int Instructions::LDHLmr_e()
 {
-    LDRRmr(registers->hl, registers->e);
+    LDRRmr(&registers->hl, &registers->e);
     return 0;
 }
 int Instructions::LDHLmr_h()
 {
-    LDRRmr(registers->hl, registers->h);
+    LDRRmr(&registers->hl, &registers->h);
     return 0;
 }
 int Instructions::LDHLmr_l()
 {
-    LDRRmr(registers->hl, registers->l);
+    LDRRmr(&registers->hl, &registers->l);
     return 0;
 }
 
@@ -903,7 +906,7 @@ int Instructions::LDHLmn()
 }
 int Instructions::LDNNmr_a()
 {
-    mmu->WriteByte(mmu->ReadByte(LoadImmediate16()), registers->a);
+    mmu->WriteByte(LoadImmediate16(), registers->a);
     return 0;
 }
 int Instructions::LDrNNm_a()
@@ -920,24 +923,24 @@ int Instructions::LDDHLmr_a()
 
 int Instructions::LDDrHLm_a()
 {
-    uint8_t HLm = mmu->GetMemoryRef(registers->hl);
-    LDrr(registers->a, HLm);
+    uint8_t* HLm = mmu->GetMemoryPtr(registers->hl);
+    LDrr(&registers->a, HLm);
     registers->hl--;
     return 0;
 }
 
 int Instructions::LDIHLmr_a()
 {
-    uint8_t HLm = mmu->GetMemoryRef(registers->hl);
-    LDrr(HLm, registers->a);
+    uint8_t* HLm = mmu->GetMemoryPtr(registers->hl);
+    LDrr(HLm, &registers->a);
     registers->hl++;
     return 0;
 }
 
 int Instructions::LDIrHLm_a()
 {
-    uint8_t HLm = mmu->GetMemoryRef(registers->hl);
-    LDrr(registers->a, HLm);
+    uint8_t* HLm = mmu->GetMemoryPtr(registers->hl);
+    LDrr(&registers->a, HLm);
     registers->hl++;
     return 0;
 }
@@ -1009,43 +1012,43 @@ int Instructions::LDNNmSP()
 
 int Instructions::PUSHAF()
 {
-    PUSHRR(registers->af);
+    PUSHRR(&registers->af);
     return 0;
 }
 int Instructions::PUSHBC()
 {
-    PUSHRR(registers->bc);
+    PUSHRR(&registers->bc);
     return 0;
 }
 int Instructions::PUSHDE()
 {
-    PUSHRR(registers->de);
+    PUSHRR(&registers->de);
     return 0;
 }
 int Instructions::PUSHHL()
 {
-    PUSHRR(registers->hl);
+    PUSHRR(&registers->hl);
     return 0;
 }
 
 int Instructions::POPAF()
 {
-    POPRR(registers->af);
+    POPRR(&registers->af);
     return 0;
 }
 int Instructions::POPBC()
 {
-    POPRR(registers->bc);
+    POPRR(&registers->bc);
     return 0;
 }
 int Instructions::POPDE()
 {
-    POPRR(registers->de);
+    POPRR(&registers->de);
     return 0;
 }
 int Instructions::POPHL()
 {
-    POPRR(registers->hl);
+    POPRR(&registers->hl);
     return 0;
 }
 
@@ -1056,489 +1059,469 @@ int Instructions::POPHL()
 
 int Instructions::ADDAA()
 {
-    ADDAr(registers->a);
+    ADDAr(&registers->a);
     return 0;
 }
 int Instructions::ADDAB()
 {
-    ADDAr(registers->b);
+    ADDAr(&registers->b);
     return 0;
 }
 int Instructions::ADDAC()
 {
-    ADDAr(registers->c);
+    ADDAr(&registers->c);
     return 0;
 }
 int Instructions::ADDAD()
 {
-    ADDAr(registers->d);
+    ADDAr(&registers->d);
     return 0;
 }
 int Instructions::ADDAE()
 {
-    ADDAr(registers->e);
+    ADDAr(&registers->e);
     return 0;
 }
 int Instructions::ADDAH()
 {
-    ADDAr(registers->h);
+    ADDAr(&registers->h);
     return 0;
 }
 int Instructions::ADDAL()
 {
-    ADDAr(registers->l);
+    ADDAr(&registers->l);
     return 0;
 }
 int Instructions::ADDAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    ADDAr(value);
+    ADDAr(&value);
     return 0;
 }
 int Instructions::ADDAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    ADDAr(value);
-    return 0;
+    ADDAr(&value);
     return 0;
 }
 
 int Instructions::ADCAA()
 {
-    ADCAr(registers->a);
+    ADCAr(&registers->a);
     return 0;
 }
 int Instructions::ADCAB()
 {
-    ADCAr(registers->b);
+    ADCAr(&registers->b);
     return 0;
 }
 int Instructions::ADCAC()
 {
-    ADCAr(registers->c);
+    ADCAr(&registers->c);
     return 0;
 }
 int Instructions::ADCAD()
 {
-    ADCAr(registers->d);
+    ADCAr(&registers->d);
     return 0;
 }
 int Instructions::ADCAE()
 {
-    ADCAr(registers->e);
+    ADCAr(&registers->e);
     return 0;
 }
 int Instructions::ADCAH()
 {
-    ADCAr(registers->h);
+    ADCAr(&registers->h);
     return 0;
 }
 int Instructions::ADCAL()
 {
-    ADCAr(registers->l);
+    ADCAr(&registers->l);
     return 0;
 }
 int Instructions::ADCAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    ADCAr(value);
+    ADCAr(&value);
     return 0;
 }
 int Instructions::ADCAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    ADCAr(value);
-    return 0;
+    ADCAr(&value);
     return 0;
 }
 
 int Instructions::SUBAA()
 {
-    SUBAr(registers->a);
+    SUBAr(&registers->a);
     return 0;
 }
 int Instructions::SUBAB()
 {
-    SUBAr(registers->b);
+    SUBAr(&registers->b);
     return 0;
 }
 int Instructions::SUBAC()
 {
-    SUBAr(registers->c);
+    SUBAr(&registers->c);
     return 0;
 }
 int Instructions::SUBAD()
 {
-    SUBAr(registers->d);
+    SUBAr(&registers->d);
     return 0;
 }
 int Instructions::SUBAE()
 {
-    SUBAr(registers->e);
+    SUBAr(&registers->e);
     return 0;
 }
 int Instructions::SUBAH()
 {
-    SUBAr(registers->h);
+    SUBAr(&registers->h);
     return 0;
 }
 int Instructions::SUBAL()
 {
-    SUBAr(registers->l);
+    SUBAr(&registers->l);
     return 0;
 }
 int Instructions::SUBAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    SUBAr(value);
+    SUBAr(&value);
     return 0;
 }
 int Instructions::SUBAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    SUBAr(value);
-    return 0;
+    SUBAr(&value);
     return 0;
 }
 
 int Instructions::SBCAA()
 {
-    SBCAr(registers->a);
+    SBCAr(&registers->a);
     return 0;
 }
 int Instructions::SBCAB()
 {
-    SBCAr(registers->b);
+    SBCAr(&registers->b);
     return 0;
 }
 int Instructions::SBCAC()
 {
-    SBCAr(registers->c);
+    SBCAr(&registers->c);
     return 0;
 }
 int Instructions::SBCAD()
 {
-    SBCAr(registers->d);
+    SBCAr(&registers->d);
     return 0;
 }
 int Instructions::SBCAE()
 {
-    SBCAr(registers->e);
+    SBCAr(&registers->e);
     return 0;
 }
 int Instructions::SBCAH()
 {
-    SBCAr(registers->h);
+    SBCAr(&registers->h);
     return 0;
 }
 int Instructions::SBCAL()
 {
-    SBCAr(registers->l);
+    SBCAr(&registers->l);
     return 0;
 }
 int Instructions::SBCAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    SBCAr(value);
+    SBCAr(&value);
     return 0;
 }
 int Instructions::SBCAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    SBCAr(value);
-    return 0;
+    SBCAr(&value);
     return 0;
 }
 
 int Instructions::ANDAA()
 {
-    ANDAr(registers->a);
+    ANDAr(&registers->a);
     return 0;
 }
 int Instructions::ANDAB()
 {
-    ANDAr(registers->b);
+    ANDAr(&registers->b);
     return 0;
 }
 int Instructions::ANDAC()
 {
-    ANDAr(registers->c);
+    ANDAr(&registers->c);
     return 0;
 }
 int Instructions::ANDAD()
 {
-    ANDAr(registers->d);
+    ANDAr(&registers->d);
     return 0;
 }
 int Instructions::ANDAE()
 {
-    ANDAr(registers->e);
+    ANDAr(&registers->e);
     return 0;
 }
 int Instructions::ANDAH()
 {
-    ANDAr(registers->h);
+    ANDAr(&registers->h);
     return 0;
 }
 int Instructions::ANDAL()
 {
-    ANDAr(registers->l);
+    ANDAr(&registers->l);
     return 0;
 }
 int Instructions::ANDAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    ANDAr(value);
+    ANDAr(&value);
     return 0;
 }
 int Instructions::ANDAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    ANDAr(value);
-    return 0;
+    ANDAr(&value);
     return 0;
 }
 
 int Instructions::ORAA()
 {
-    ORAr(registers->a);
+    ORAr(&registers->a);
     return 0;
 }
 int Instructions::ORAB()
 {
-    ORAr(registers->b);
+    ORAr(&registers->b);
     return 0;
 }
 int Instructions::ORAC()
 {
-    ORAr(registers->c);
+    ORAr(&registers->c);
     return 0;
 }
 int Instructions::ORAD()
 {
-    ORAr(registers->d);
+    ORAr(&registers->d);
     return 0;
 }
 int Instructions::ORAE()
 {
-    ORAr(registers->e);
+    ORAr(&registers->e);
     return 0;
 }
 int Instructions::ORAH()
 {
-    ORAr(registers->h);
+    ORAr(&registers->h);
     return 0;
 }
 int Instructions::ORAL()
 {
-    ORAr(registers->l);
+    ORAr(&registers->l);
     return 0;
 }
 int Instructions::ORAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    ORAr(value);
+    ORAr(&value);
     return 0;
 }
 int Instructions::ORAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    ORAr(value);
-    return 0;
+    ORAr(&value);
     return 0;
 }
 
 int Instructions::XORAA()
 {
-    XORAr(registers->a);
+    XORAr(&registers->a);
     return 0;
 }
 int Instructions::XORAB()
 {
-    XORAr(registers->b);
+    XORAr(&registers->b);
     return 0;
 }
 int Instructions::XORAC()
 {
-    XORAr(registers->c);
+    XORAr(&registers->c);
     return 0;
 }
 int Instructions::XORAD()
 {
-    XORAr(registers->d);
+    XORAr(&registers->d);
     return 0;
 }
 int Instructions::XORAE()
 {
-    XORAr(registers->e);
+    XORAr(&registers->e);
     return 0;
 }
 int Instructions::XORAH()
 {
-    XORAr(registers->h);
+    XORAr(&registers->h);
     return 0;
 }
 int Instructions::XORAL()
 {
-    XORAr(registers->l);
+    XORAr(&registers->l);
     return 0;
 }
 int Instructions::XORAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    XORAr(value);
+    XORAr(&value);
     return 0;
 }
 int Instructions::XORAn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    XORAr(value);
-    return 0;
+    XORAr(&value);
     return 0;
 }
 
 int Instructions::CPr_a()
 {
-    CPr(registers->a);
+    CPr(&registers->a);
     return 0;
 }
 int Instructions::CPr_b()
 {
-    CPr(registers->b);
+    CPr(&registers->b);
     return 0;
 }
 int Instructions::CPr_c()
 {
-    CPr(registers->c);
+    CPr(&registers->c);
     return 0;
 }
 int Instructions::CPr_d()
 {
-    CPr(registers->d);
+    CPr(&registers->d);
     return 0;
 }
 int Instructions::CPr_e()
 {
-    CPr(registers->e);
+    CPr(&registers->e);
     return 0;
 }
 int Instructions::CPr_h()
 {
-    CPr(registers->h);
+    CPr(&registers->h);
     return 0;
 }
 int Instructions::CPr_l()
 {
-    CPr(registers->l);
+    CPr(&registers->l);
     return 0;
 }
 int Instructions::CPHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    CPr(value);
+    CPr(&value);
     return 0;
 }
 int Instructions::CPn()
 {
     uint8_t value = LoadImmediate8();
-    return 0;
-    CPr(value);
-    return 0;
+    CPr(&value);
     return 0;
 }
 
 int Instructions::INCA()
 {
-    INCr(registers->a);
+    INCr(&registers->a);
     return 0;
 }
 int Instructions::INCB()
 {
-    INCr(registers->b);
+    INCr(&registers->b);
     return 0;
 }
 int Instructions::INCC()
 {
-    INCr(registers->c);
+    INCr(&registers->c);
     return 0;
 }
 int Instructions::INCD()
 {
-    INCr(registers->d);
+    INCr(&registers->d);
     return 0;
 }
 int Instructions::INCE()
 {
-    INCr(registers->e);
+    INCr(&registers->e);
     return 0;
 }
 int Instructions::INCH()
 {
-    INCr(registers->h);
+    INCr(&registers->h);
     return 0;
 }
 int Instructions::INCL()
 {
-    INCr(registers->l);
+    INCr(&registers->l);
     return 0;
 }
 int Instructions::INCHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    INCr(value);
-    return 0;
+    INCr(&value);
     return 0;
 }
 
 int Instructions::DECA()
 {
-    DECr(registers->a);
+    DECr(&registers->a);
     return 0;
 }
 int Instructions::DECB()
 {
-    DECr(registers->b);
+    DECr(&registers->b);
     return 0;
 }
 int Instructions::DECC()
 {
-    DECr(registers->c);
+    DECr(&registers->c);
     return 0;
 }
 int Instructions::DECD()
 {
-    DECr(registers->d);
+    DECr(&registers->d);
     return 0;
 }
 int Instructions::DECE()
 {
-    DECr(registers->e);
+    DECr(&registers->e);
     return 0;
 }
 int Instructions::DECH()
 {
-    DECr(registers->h);
+    DECr(&registers->h);
     return 0;
 }
 int Instructions::DECL()
 {
-    DECr(registers->l);
+    DECr(&registers->l);
     return 0;
 }
 int Instructions::DECHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    DECr(value);
-    return 0;
+    DECr(&value);
     return 0;
 }
 
@@ -1548,22 +1531,22 @@ int Instructions::DECHLm()
 
 int Instructions::ADDHLBC()
 {
-    ADDHLRR(registers->bc);
+    ADDHLRR(&registers->bc);
     return 0;
 }
 int Instructions::ADDHLDE()
 {
-    ADDHLRR(registers->de);
+    ADDHLRR(&registers->de);
     return 0;
 }
 int Instructions::ADDHLHL()
 {
-    ADDHLRR(registers->hl);
+    ADDHLRR(&registers->hl);
     return 0;
 }
 int Instructions::ADDHLSP()
 {
-    ADDHLRR(registers->sp);
+    ADDHLRR(&registers->sp);
     return 0;
 }
 
@@ -1575,43 +1558,43 @@ int Instructions::ADDSPn()
 
 int Instructions::INCBC()
 {
-    INCRR(registers->bc);
+    INCRR(&registers->bc);
     return 0;
 }
 int Instructions::INCDE()
 {
-    INCRR(registers->de);
+    INCRR(&registers->de);
     return 0;
 }
 int Instructions::INCHL()
 {
-    INCRR(registers->hl);
+    INCRR(&registers->hl);
     return 0;
 }
 int Instructions::INCSP()
 {
-    INCRR(registers->sp);
+    INCRR(&registers->sp);
     return 0;
 }
 
 int Instructions::DECBC()
 {
-    DECRR(registers->bc);
+    DECRR(&registers->bc);
     return 0;
 }
 int Instructions::DECDE()
 {
-    DECRR(registers->de);
+    DECRR(&registers->de);
     return 0;
 }
 int Instructions::DECHL()
 {
-    DECRR(registers->hl);
+    DECRR(&registers->hl);
     return 0;
 }
 int Instructions::DECSP()
 {
-    DECRR(registers->sp);
+    DECRR(&registers->sp);
     return 0;
 }
 
@@ -1737,307 +1720,295 @@ int Instructions::RRA()
 
 int Instructions::CBRLCA()
 {
-    CBRLCr(registers->a);
+    CBRLCr(&registers->a);
     return 0;
 }
 int Instructions::CBRLCB()
 {
-    CBRLCr(registers->b);
+    CBRLCr(&registers->b);
     return 0;
 }
 int Instructions::CBRLCC()
 {
-    CBRLCr(registers->c);
+    CBRLCr(&registers->c);
     return 0;
 }
 int Instructions::CBRLCD()
 {
-    CBRLCr(registers->d);
+    CBRLCr(&registers->d);
     return 0;
 }
 int Instructions::CBRLCE()
 {
-    CBRLCr(registers->e);
+    CBRLCr(&registers->e);
     return 0;
 }
 int Instructions::CBRLCH()
 {
-    CBRLCr(registers->h);
+    CBRLCr(&registers->h);
     return 0;
 }
 int Instructions::CBRLCL()
 {
-    CBRLCr(registers->l);
+    CBRLCr(&registers->l);
     return 0;
 }
 int Instructions::CBRLCHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBRLCr(value);
-    return 0;
+    CBRLCr(&value);
     return 0;
 }
 
 int Instructions::CBRLA()
 {
-    CBRLr(registers->a);
+    CBRLr(&registers->a);
     return 0;
 }
 int Instructions::CBRLB()
 {
-    CBRLr(registers->b);
+    CBRLr(&registers->b);
     return 0;
 }
 int Instructions::CBRLC()
 {
-    CBRLr(registers->c);
+    CBRLr(&registers->c);
     return 0;
 }
 int Instructions::CBRLD()
 {
-    CBRLr(registers->d);
+    CBRLr(&registers->d);
     return 0;
 }
 int Instructions::CBRLE()
 {
-    CBRLr(registers->e);
+    CBRLr(&registers->e);
     return 0;
 }
 int Instructions::CBRLH()
 {
-    CBRLr(registers->h);
+    CBRLr(&registers->h);
     return 0;
 }
 int Instructions::CBRLL()
 {
-    CBRLr(registers->l);
+    CBRLr(&registers->l);
     return 0;
 }
 int Instructions::CBRLHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBRLr(value);
-    return 0;
+    CBRLr(&value);
     return 0;
 }
 
 int Instructions::CBRRCA()
 {
-    CBRRCr(registers->a);
+    CBRRCr(&registers->a);
     return 0;
 }
 int Instructions::CBRRCB()
 {
-    CBRRCr(registers->b);
+    CBRRCr(&registers->b);
     return 0;
 }
 int Instructions::CBRRCC()
 {
-    CBRRCr(registers->c);
+    CBRRCr(&registers->c);
     return 0;
 }
 int Instructions::CBRRCD()
 {
-    CBRRCr(registers->d);
+    CBRRCr(&registers->d);
     return 0;
 }
 int Instructions::CBRRCE()
 {
-    CBRRCr(registers->e);
+    CBRRCr(&registers->e);
     return 0;
 }
 int Instructions::CBRRCH()
 {
-    CBRRCr(registers->h);
+    CBRRCr(&registers->h);
     return 0;
 }
 int Instructions::CBRRCL()
 {
-    CBRRCr(registers->l);
+    CBRRCr(&registers->l);
     return 0;
 }
 int Instructions::CBRRCHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBRRCr(value);
-    return 0;
+    CBRRCr(&value);
     return 0;
 }
 
 int Instructions::CBRRA()
 {
-    CBRRr(registers->a);
+    CBRRr(&registers->a);
     return 0;
 }
 int Instructions::CBRRB()
 {
-    CBRRr(registers->b);
+    CBRRr(&registers->b);
     return 0;
 }
 int Instructions::CBRRC()
 {
-    CBRRr(registers->c);
+    CBRRr(&registers->c);
     return 0;
 }
 int Instructions::CBRRD()
 {
-    CBRRr(registers->d);
+    CBRRr(&registers->d);
     return 0;
 }
 int Instructions::CBRRE()
 {
-    CBRRr(registers->e);
+    CBRRr(&registers->e);
     return 0;
 }
 int Instructions::CBRRH()
 {
-    CBRRr(registers->h);
+    CBRRr(&registers->h);
     return 0;
 }
 int Instructions::CBRRL()
 {
-    CBRRr(registers->l);
+    CBRRr(&registers->l);
     return 0;
 }
 int Instructions::CBRRHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBRRr(value);
-    return 0;
+    CBRRr(&value);
     return 0;
 }
 
 int Instructions::CBSLAA()
 {
-    CBSLAr(registers->a);
+    CBSLAr(&registers->a);
     return 0;
 }
 int Instructions::CBSLAB()
 {
-    CBSLAr(registers->b);
+    CBSLAr(&registers->b);
     return 0;
 }
 int Instructions::CBSLAC()
 {
-    CBSLAr(registers->c);
+    CBSLAr(&registers->c);
     return 0;
 }
 int Instructions::CBSLAD()
 {
-    CBSLAr(registers->d);
+    CBSLAr(&registers->d);
     return 0;
 }
 int Instructions::CBSLAE()
 {
-    CBSLAr(registers->e);
+    CBSLAr(&registers->e);
     return 0;
 }
 int Instructions::CBSLAH()
 {
-    CBSLAr(registers->h);
+    CBSLAr(&registers->h);
     return 0;
 }
 int Instructions::CBSLAL()
 {
-    CBSLAr(registers->l);
+    CBSLAr(&registers->l);
     return 0;
 }
 int Instructions::CBSLAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBSLAr(value);
-    return 0;
+    CBSLAr(&value);
     return 0;
 }
 
 int Instructions::CBSRAA()
 {
-    CBSRAr(registers->a);
+    CBSRAr(&registers->a);
     return 0;
 }
 int Instructions::CBSRAB()
 {
-    CBSRAr(registers->b);
+    CBSRAr(&registers->b);
     return 0;
 }
 int Instructions::CBSRAC()
 {
-    CBSRAr(registers->c);
+    CBSRAr(&registers->c);
     return 0;
 }
 int Instructions::CBSRAD()
 {
-    CBSRAr(registers->d);
+    CBSRAr(&registers->d);
     return 0;
 }
 int Instructions::CBSRAE()
 {
-    CBSRAr(registers->e);
+    CBSRAr(&registers->e);
     return 0;
 }
 int Instructions::CBSRAH()
 {
-    CBSRAr(registers->h);
+    CBSRAr(&registers->h);
     return 0;
 }
 int Instructions::CBSRAL()
 {
-    CBSRAr(registers->l);
+    CBSRAr(&registers->l);
     return 0;
 }
 int Instructions::CBSRAHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    return 0;
-    CBSRAr(value);
-    return 0;
+    CBSRAr(&value);
     return 0;
 }
 
 int Instructions::CBSRLA()
 {
-    CBSRLr(registers->a);
+    CBSRLr(&registers->a);
     return 0;
 }
 int Instructions::CBSRLB()
 {
-    CBSRLr(registers->b);
+    CBSRLr(&registers->b);
     return 0;
 }
 int Instructions::CBSRLC()
 {
-    CBSRLr(registers->c);
+    CBSRLr(&registers->c);
     return 0;
 }
 int Instructions::CBSRLD()
 {
-    CBSRLr(registers->d);
+    CBSRLr(&registers->d);
     return 0;
 }
 int Instructions::CBSRLE()
 {
-    CBSRLr(registers->e);
+    CBSRLr(&registers->e);
     return 0;
 }
 int Instructions::CBSRLH()
 {
-    CBSRLr(registers->h);
+    CBSRLr(&registers->h);
     return 0;
 }
 int Instructions::CBSRLL()
 {
-    CBSRLr(registers->l);
+    CBSRLr(&registers->l);
     return 0;
 }
 int Instructions::CBSRLHLm()
 {
     uint8_t value = mmu->ReadByte(registers->hl);
-    CBSRLr(value);
+    CBSRLr(&value);
     return 0;
 }
 
@@ -2078,7 +2049,7 @@ int Instructions::JPHLm()
 
 int Instructions::JRn()
 {
-    registers->pc += LoadImmediate8();
+    registers->pc += (int8_t)LoadImmediate8();
     return 0;
 }
 int Instructions::JRNZn()
@@ -2231,1005 +2202,1005 @@ int Instructions::RETI()
 
 int Instructions::CBBIT0A()
 {
-    CBBITbr(0, registers->a);
+    CBBITbr(0, &registers->a);
     return 0;
 }
 int Instructions::CBBIT1A()
 {
-    CBBITbr(1, registers->a);
+    CBBITbr(1, &registers->a);
     return 0;
 }
 int Instructions::CBBIT2A()
 {
-    CBBITbr(2, registers->a);
+    CBBITbr(2, &registers->a);
     return 0;
 }
 int Instructions::CBBIT3A()
 {
-    CBBITbr(3, registers->a);
+    CBBITbr(3, &registers->a);
     return 0;
 }
 int Instructions::CBBIT4A()
 {
-    CBBITbr(4, registers->a);
+    CBBITbr(4, &registers->a);
     return 0;
 }
 int Instructions::CBBIT5A()
 {
-    CBBITbr(5, registers->a);
+    CBBITbr(5, &registers->a);
     return 0;
 }
 int Instructions::CBBIT6A()
 {
-    CBBITbr(6, registers->a);
+    CBBITbr(6, &registers->a);
     return 0;
 }
 int Instructions::CBBIT7A()
 {
-    CBBITbr(7, registers->a);
+    CBBITbr(7, &registers->a);
     return 0;
 }
 int Instructions::CBBIT0B()
 {
-    CBBITbr(0, registers->b);
+    CBBITbr(0, &registers->b);
     return 0;
 }
 int Instructions::CBBIT1B()
 {
-    CBBITbr(1, registers->b);
+    CBBITbr(1, &registers->b);
     return 0;
 }
 int Instructions::CBBIT2B()
 {
-    CBBITbr(2, registers->b);
+    CBBITbr(2, &registers->b);
     return 0;
 }
 int Instructions::CBBIT3B()
 {
-    CBBITbr(3, registers->b);
+    CBBITbr(3, &registers->b);
     return 0;
 }
 int Instructions::CBBIT4B()
 {
-    CBBITbr(4, registers->b);
+    CBBITbr(4, &registers->b);
     return 0;
 }
 int Instructions::CBBIT5B()
 {
-    CBBITbr(5, registers->b);
+    CBBITbr(5, &registers->b);
     return 0;
 }
 int Instructions::CBBIT6B()
 {
-    CBBITbr(6, registers->b);
+    CBBITbr(6, &registers->b);
     return 0;
 }
 int Instructions::CBBIT7B()
 {
-    CBBITbr(7, registers->b);
+    CBBITbr(7, &registers->b);
     return 0;
 }
 int Instructions::CBBIT0C()
 {
-    CBBITbr(0, registers->c);
+    CBBITbr(0, &registers->c);
     return 0;
 }
 int Instructions::CBBIT1C()
 {
-    CBBITbr(1, registers->c);
+    CBBITbr(1, &registers->c);
     return 0;
 }
 int Instructions::CBBIT2C()
 {
-    CBBITbr(2, registers->c);
+    CBBITbr(2, &registers->c);
     return 0;
 }
 int Instructions::CBBIT3C()
 {
-    CBBITbr(3, registers->c);
+    CBBITbr(3, &registers->c);
     return 0;
 }
 int Instructions::CBBIT4C()
 {
-    CBBITbr(4, registers->c);
+    CBBITbr(4, &registers->c);
     return 0;
 }
 int Instructions::CBBIT5C()
 {
-    CBBITbr(5, registers->c);
+    CBBITbr(5, &registers->c);
     return 0;
 }
 int Instructions::CBBIT6C()
 {
-    CBBITbr(6, registers->c);
+    CBBITbr(6, &registers->c);
     return 0;
 }
 int Instructions::CBBIT7C()
 {
-    CBBITbr(7, registers->c);
+    CBBITbr(7, &registers->c);
     return 0;
 }
 int Instructions::CBBIT0D()
 {
-    CBBITbr(0, registers->d);
+    CBBITbr(0, &registers->d);
     return 0;
 }
 int Instructions::CBBIT1D()
 {
-    CBBITbr(1, registers->d);
+    CBBITbr(1, &registers->d);
     return 0;
 }
 int Instructions::CBBIT2D()
 {
-    CBBITbr(2, registers->d);
+    CBBITbr(2, &registers->d);
     return 0;
 }
 int Instructions::CBBIT3D()
 {
-    CBBITbr(3, registers->d);
+    CBBITbr(3, &registers->d);
     return 0;
 }
 int Instructions::CBBIT4D()
 {
-    CBBITbr(4, registers->d);
+    CBBITbr(4, &registers->d);
     return 0;
 }
 int Instructions::CBBIT5D()
 {
-    CBBITbr(5, registers->d);
+    CBBITbr(5, &registers->d);
     return 0;
 }
 int Instructions::CBBIT6D()
 {
-    CBBITbr(6, registers->d);
+    CBBITbr(6, &registers->d);
     return 0;
 }
 int Instructions::CBBIT7D()
 {
-    CBBITbr(7, registers->d);
+    CBBITbr(7, &registers->d);
     return 0;
 }
 int Instructions::CBBIT0E()
 {
-    CBBITbr(0, registers->e);
+    CBBITbr(0, &registers->e);
     return 0;
 }
 int Instructions::CBBIT1E()
 {
-    CBBITbr(1, registers->e);
+    CBBITbr(1, &registers->e);
     return 0;
 }
 int Instructions::CBBIT2E()
 {
-    CBBITbr(2, registers->e);
+    CBBITbr(2, &registers->e);
     return 0;
 }
 int Instructions::CBBIT3E()
 {
-    CBBITbr(3, registers->e);
+    CBBITbr(3, &registers->e);
     return 0;
 }
 int Instructions::CBBIT4E()
 {
-    CBBITbr(4, registers->e);
+    CBBITbr(4, &registers->e);
     return 0;
 }
 int Instructions::CBBIT5E()
 {
-    CBBITbr(5, registers->e);
+    CBBITbr(5, &registers->e);
     return 0;
 }
 int Instructions::CBBIT6E()
 {
-    CBBITbr(6, registers->e);
+    CBBITbr(6, &registers->e);
     return 0;
 }
 int Instructions::CBBIT7E()
 {
-    CBBITbr(7, registers->e);
+    CBBITbr(7, &registers->e);
     return 0;
 }
 int Instructions::CBBIT0H()
 {
-    CBBITbr(0, registers->h);
+    CBBITbr(0, &registers->h);
     return 0;
 }
 int Instructions::CBBIT1H()
 {
-    CBBITbr(1, registers->h);
+    CBBITbr(1, &registers->h);
     return 0;
 }
 int Instructions::CBBIT2H()
 {
-    CBBITbr(2, registers->h);
+    CBBITbr(2, &registers->h);
     return 0;
 }
 int Instructions::CBBIT3H()
 {
-    CBBITbr(3, registers->h);
+    CBBITbr(3, &registers->h);
     return 0;
 }
 int Instructions::CBBIT4H()
 {
-    CBBITbr(4, registers->h);
+    CBBITbr(4, &registers->h);
     return 0;
 }
 int Instructions::CBBIT5H()
 {
-    CBBITbr(5, registers->h);
+    CBBITbr(5, &registers->h);
     return 0;
 }
 int Instructions::CBBIT6H()
 {
-    CBBITbr(6, registers->h);
+    CBBITbr(6, &registers->h);
     return 0;
 }
 int Instructions::CBBIT7H()
 {
-    CBBITbr(7, registers->h);
+    CBBITbr(7, &registers->h);
     return 0;
 }
 int Instructions::CBBIT0L()
 {
-    CBBITbr(0, registers->l);
+    CBBITbr(0, &registers->l);
     return 0;
 }
 int Instructions::CBBIT1L()
 {
-    CBBITbr(1, registers->l);
+    CBBITbr(1, &registers->l);
     return 0;
 }
 int Instructions::CBBIT2L()
 {
-    CBBITbr(2, registers->l);
+    CBBITbr(2, &registers->l);
     return 0;
 }
 int Instructions::CBBIT3L()
 {
-    CBBITbr(3, registers->l);
+    CBBITbr(3, &registers->l);
     return 0;
 }
 int Instructions::CBBIT4L()
 {
-    CBBITbr(4, registers->l);
+    CBBITbr(4, &registers->l);
     return 0;
 }
 int Instructions::CBBIT5L()
 {
-    CBBITbr(5, registers->l);
+    CBBITbr(5, &registers->l);
     return 0;
 }
 int Instructions::CBBIT6L()
 {
-    CBBITbr(6, registers->l);
+    CBBITbr(6, &registers->l);
     return 0;
 }
 int Instructions::CBBIT7L()
 {
-    CBBITbr(7, registers->l);
+    CBBITbr(7, &registers->l);
     return 0;
 }
 int Instructions::CBBIT0HLm()
 {
-    CBBITbr(0, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(0, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT1HLm()
 {
-    CBBITbr(1, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(1, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT2HLm()
 {
-    CBBITbr(2, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(2, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT3HLm()
 {
-    CBBITbr(3, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(3, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT4HLm()
 {
-    CBBITbr(4, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(4, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT5HLm()
 {
-    CBBITbr(5, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(5, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT6HLm()
 {
-    CBBITbr(6, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(6, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBBIT7HLm()
 {
-    CBBITbr(7, mmu->GetMemoryRef(registers->hl));
+    CBBITbr(7, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 
 int Instructions::CBSET0A()
 {
-    CBSETbr(0, registers->a);
+    CBSETbr(0, &registers->a);
     return 0;
 }
 int Instructions::CBSET1A()
 {
-    CBSETbr(1, registers->a);
+    CBSETbr(1, &registers->a);
     return 0;
 }
 int Instructions::CBSET2A()
 {
-    CBSETbr(2, registers->a);
+    CBSETbr(2, &registers->a);
     return 0;
 }
 int Instructions::CBSET3A()
 {
-    CBSETbr(3, registers->a);
+    CBSETbr(3, &registers->a);
     return 0;
 }
 int Instructions::CBSET4A()
 {
-    CBSETbr(4, registers->a);
+    CBSETbr(4, &registers->a);
     return 0;
 }
 int Instructions::CBSET5A()
 {
-    CBSETbr(5, registers->a);
+    CBSETbr(5, &registers->a);
     return 0;
 }
 int Instructions::CBSET6A()
 {
-    CBSETbr(6, registers->a);
+    CBSETbr(6, &registers->a);
     return 0;
 }
 int Instructions::CBSET7A()
 {
-    CBSETbr(7, registers->a);
+    CBSETbr(7, &registers->a);
     return 0;
 }
 int Instructions::CBSET0B()
 {
-    CBSETbr(0, registers->b);
+    CBSETbr(0, &registers->b);
     return 0;
 }
 int Instructions::CBSET1B()
 {
-    CBSETbr(1, registers->b);
+    CBSETbr(1, &registers->b);
     return 0;
 }
 int Instructions::CBSET2B()
 {
-    CBSETbr(2, registers->b);
+    CBSETbr(2, &registers->b);
     return 0;
 }
 int Instructions::CBSET3B()
 {
-    CBSETbr(3, registers->b);
+    CBSETbr(3, &registers->b);
     return 0;
 }
 int Instructions::CBSET4B()
 {
-    CBSETbr(4, registers->b);
+    CBSETbr(4, &registers->b);
     return 0;
 }
 int Instructions::CBSET5B()
 {
-    CBSETbr(5, registers->b);
+    CBSETbr(5, &registers->b);
     return 0;
 }
 int Instructions::CBSET6B()
 {
-    CBSETbr(6, registers->b);
+    CBSETbr(6, &registers->b);
     return 0;
 }
 int Instructions::CBSET7B()
 {
-    CBSETbr(7, registers->b);
+    CBSETbr(7, &registers->b);
     return 0;
 }
 int Instructions::CBSET0C()
 {
-    CBSETbr(0, registers->c);
+    CBSETbr(0, &registers->c);
     return 0;
 }
 int Instructions::CBSET1C()
 {
-    CBSETbr(1, registers->c);
+    CBSETbr(1, &registers->c);
     return 0;
 }
 int Instructions::CBSET2C()
 {
-    CBSETbr(2, registers->c);
+    CBSETbr(2, &registers->c);
     return 0;
 }
 int Instructions::CBSET3C()
 {
-    CBSETbr(3, registers->c);
+    CBSETbr(3, &registers->c);
     return 0;
 }
 int Instructions::CBSET4C()
 {
-    CBSETbr(4, registers->c);
+    CBSETbr(4, &registers->c);
     return 0;
 }
 int Instructions::CBSET5C()
 {
-    CBSETbr(5, registers->c);
+    CBSETbr(5, &registers->c);
     return 0;
 }
 int Instructions::CBSET6C()
 {
-    CBSETbr(6, registers->c);
+    CBSETbr(6, &registers->c);
     return 0;
 }
 int Instructions::CBSET7C()
 {
-    CBSETbr(7, registers->c);
+    CBSETbr(7, &registers->c);
     return 0;
 }
 int Instructions::CBSET0D()
 {
-    CBSETbr(0, registers->d);
+    CBSETbr(0, &registers->d);
     return 0;
 }
 int Instructions::CBSET1D()
 {
-    CBSETbr(1, registers->d);
+    CBSETbr(1, &registers->d);
     return 0;
 }
 int Instructions::CBSET2D()
 {
-    CBSETbr(2, registers->d);
+    CBSETbr(2, &registers->d);
     return 0;
 }
 int Instructions::CBSET3D()
 {
-    CBSETbr(3, registers->d);
+    CBSETbr(3, &registers->d);
     return 0;
 }
 int Instructions::CBSET4D()
 {
-    CBSETbr(4, registers->d);
+    CBSETbr(4, &registers->d);
     return 0;
 }
 int Instructions::CBSET5D()
 {
-    CBSETbr(5, registers->d);
+    CBSETbr(5, &registers->d);
     return 0;
 }
 int Instructions::CBSET6D()
 {
-    CBSETbr(6, registers->d);
+    CBSETbr(6, &registers->d);
     return 0;
 }
 int Instructions::CBSET7D()
 {
-    CBSETbr(7, registers->d);
+    CBSETbr(7, &registers->d);
     return 0;
 }
 int Instructions::CBSET0E()
 {
-    CBSETbr(0, registers->e);
+    CBSETbr(0, &registers->e);
     return 0;
 }
 int Instructions::CBSET1E()
 {
-    CBSETbr(1, registers->e);
+    CBSETbr(1, &registers->e);
     return 0;
 }
 int Instructions::CBSET2E()
 {
-    CBSETbr(2, registers->e);
+    CBSETbr(2, &registers->e);
     return 0;
 }
 int Instructions::CBSET3E()
 {
-    CBSETbr(3, registers->e);
+    CBSETbr(3, &registers->e);
     return 0;
 }
 int Instructions::CBSET4E()
 {
-    CBSETbr(4, registers->e);
+    CBSETbr(4, &registers->e);
     return 0;
 }
 int Instructions::CBSET5E()
 {
-    CBSETbr(5, registers->e);
+    CBSETbr(5, &registers->e);
     return 0;
 }
 int Instructions::CBSET6E()
 {
-    CBSETbr(6, registers->e);
+    CBSETbr(6, &registers->e);
     return 0;
 }
 int Instructions::CBSET7E()
 {
-    CBSETbr(7, registers->e);
+    CBSETbr(7, &registers->e);
     return 0;
 }
 int Instructions::CBSET0H()
 {
-    CBSETbr(0, registers->h);
+    CBSETbr(0, &registers->h);
     return 0;
 }
 int Instructions::CBSET1H()
 {
-    CBSETbr(1, registers->h);
+    CBSETbr(1, &registers->h);
     return 0;
 }
 int Instructions::CBSET2H()
 {
-    CBSETbr(2, registers->h);
+    CBSETbr(2, &registers->h);
     return 0;
 }
 int Instructions::CBSET3H()
 {
-    CBSETbr(3, registers->h);
+    CBSETbr(3, &registers->h);
     return 0;
 }
 int Instructions::CBSET4H()
 {
-    CBSETbr(4, registers->h);
+    CBSETbr(4, &registers->h);
     return 0;
 }
 int Instructions::CBSET5H()
 {
-    CBSETbr(5, registers->h);
+    CBSETbr(5, &registers->h);
     return 0;
 }
 int Instructions::CBSET6H()
 {
-    CBSETbr(6, registers->h);
+    CBSETbr(6, &registers->h);
     return 0;
 }
 int Instructions::CBSET7H()
 {
-    CBSETbr(7, registers->h);
+    CBSETbr(7, &registers->h);
     return 0;
 }
 int Instructions::CBSET0L()
 {
-    CBSETbr(0, registers->l);
+    CBSETbr(0, &registers->l);
     return 0;
 }
 int Instructions::CBSET1L()
 {
-    CBSETbr(1, registers->l);
+    CBSETbr(1, &registers->l);
     return 0;
 }
 int Instructions::CBSET2L()
 {
-    CBSETbr(2, registers->l);
+    CBSETbr(2, &registers->l);
     return 0;
 }
 int Instructions::CBSET3L()
 {
-    CBSETbr(3, registers->l);
+    CBSETbr(3, &registers->l);
     return 0;
 }
 int Instructions::CBSET4L()
 {
-    CBSETbr(4, registers->l);
+    CBSETbr(4, &registers->l);
     return 0;
 }
 int Instructions::CBSET5L()
 {
-    CBSETbr(5, registers->l);
+    CBSETbr(5, &registers->l);
     return 0;
 }
 int Instructions::CBSET6L()
 {
-    CBSETbr(6, registers->l);
+    CBSETbr(6, &registers->l);
     return 0;
 }
 int Instructions::CBSET7L()
 {
-    CBSETbr(7, registers->l);
+    CBSETbr(7, &registers->l);
     return 0;
 }
 int Instructions::CBSET0HLm()
 {
-    CBSETbr(0, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(0, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET1HLm()
 {
-    CBSETbr(1, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(1, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET2HLm()
 {
-    CBSETbr(2, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(2, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET3HLm()
 {
-    CBSETbr(3, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(3, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET4HLm()
 {
-    CBSETbr(4, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(4, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET5HLm()
 {
-    CBSETbr(5, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(5, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET6HLm()
 {
-    CBSETbr(6, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(6, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBSET7HLm()
 {
-    CBSETbr(7, mmu->GetMemoryRef(registers->hl));
+    CBSETbr(7, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 
 int Instructions::CBRES0A()
 {
-    CBRESbr(0, registers->a);
+    CBRESbr(0, &registers->a);
     return 0;
 }
 int Instructions::CBRES1A()
 {
-    CBRESbr(1, registers->a);
+    CBRESbr(1, &registers->a);
     return 0;
 }
 int Instructions::CBRES2A()
 {
-    CBRESbr(2, registers->a);
+    CBRESbr(2, &registers->a);
     return 0;
 }
 int Instructions::CBRES3A()
 {
-    CBRESbr(3, registers->a);
+    CBRESbr(3, &registers->a);
     return 0;
 }
 int Instructions::CBRES4A()
 {
-    CBRESbr(4, registers->a);
+    CBRESbr(4, &registers->a);
     return 0;
 }
 int Instructions::CBRES5A()
 {
-    CBRESbr(5, registers->a);
+    CBRESbr(5, &registers->a);
     return 0;
 }
 int Instructions::CBRES6A()
 {
-    CBRESbr(6, registers->a);
+    CBRESbr(6, &registers->a);
     return 0;
 }
 int Instructions::CBRES7A()
 {
-    CBRESbr(7, registers->a);
+    CBRESbr(7, &registers->a);
     return 0;
 }
 int Instructions::CBRES0B()
 {
-    CBRESbr(0, registers->b);
+    CBRESbr(0, &registers->b);
     return 0;
 }
 int Instructions::CBRES1B()
 {
-    CBRESbr(1, registers->b);
+    CBRESbr(1, &registers->b);
     return 0;
 }
 int Instructions::CBRES2B()
 {
-    CBRESbr(2, registers->b);
+    CBRESbr(2, &registers->b);
     return 0;
 }
 int Instructions::CBRES3B()
 {
-    CBRESbr(3, registers->b);
+    CBRESbr(3, &registers->b);
     return 0;
 }
 int Instructions::CBRES4B()
 {
-    CBRESbr(4, registers->b);
+    CBRESbr(4, &registers->b);
     return 0;
 }
 int Instructions::CBRES5B()
 {
-    CBRESbr(5, registers->b);
+    CBRESbr(5, &registers->b);
     return 0;
 }
 int Instructions::CBRES6B()
 {
-    CBRESbr(6, registers->b);
+    CBRESbr(6, &registers->b);
     return 0;
 }
 int Instructions::CBRES7B()
 {
-    CBRESbr(7, registers->b);
+    CBRESbr(7, &registers->b);
     return 0;
 }
 int Instructions::CBRES0C()
 {
-    CBRESbr(0, registers->c);
+    CBRESbr(0, &registers->c);
     return 0;
 }
 int Instructions::CBRES1C()
 {
-    CBRESbr(1, registers->c);
+    CBRESbr(1, &registers->c);
     return 0;
 }
 int Instructions::CBRES2C()
 {
-    CBRESbr(2, registers->c);
+    CBRESbr(2, &registers->c);
     return 0;
 }
 int Instructions::CBRES3C()
 {
-    CBRESbr(3, registers->c);
+    CBRESbr(3, &registers->c);
     return 0;
 }
 int Instructions::CBRES4C()
 {
-    CBRESbr(4, registers->c);
+    CBRESbr(4, &registers->c);
     return 0;
 }
 int Instructions::CBRES5C()
 {
-    CBRESbr(5, registers->c);
+    CBRESbr(5, &registers->c);
     return 0;
 }
 int Instructions::CBRES6C()
 {
-    CBRESbr(6, registers->c);
+    CBRESbr(6, &registers->c);
     return 0;
 }
 int Instructions::CBRES7C()
 {
-    CBRESbr(7, registers->c);
+    CBRESbr(7, &registers->c);
     return 0;
 }
 int Instructions::CBRES0D()
 {
-    CBRESbr(0, registers->d);
+    CBRESbr(0, &registers->d);
     return 0;
 }
 int Instructions::CBRES1D()
 {
-    CBRESbr(1, registers->d);
+    CBRESbr(1, &registers->d);
     return 0;
 }
 int Instructions::CBRES2D()
 {
-    CBRESbr(2, registers->d);
+    CBRESbr(2, &registers->d);
     return 0;
 }
 int Instructions::CBRES3D()
 {
-    CBRESbr(3, registers->d);
+    CBRESbr(3, &registers->d);
     return 0;
 }
 int Instructions::CBRES4D()
 {
-    CBRESbr(4, registers->d);
+    CBRESbr(4, &registers->d);
     return 0;
 }
 int Instructions::CBRES5D()
 {
-    CBRESbr(5, registers->d);
+    CBRESbr(5, &registers->d);
     return 0;
 }
 int Instructions::CBRES6D()
 {
-    CBRESbr(6, registers->d);
+    CBRESbr(6, &registers->d);
     return 0;
 }
 int Instructions::CBRES7D()
 {
-    CBRESbr(7, registers->d);
+    CBRESbr(7, &registers->d);
     return 0;
 }
 int Instructions::CBRES0E()
 {
-    CBRESbr(0, registers->e);
+    CBRESbr(0, &registers->e);
     return 0;
 }
 int Instructions::CBRES1E()
 {
-    CBRESbr(1, registers->e);
+    CBRESbr(1, &registers->e);
     return 0;
 }
 int Instructions::CBRES2E()
 {
-    CBRESbr(2, registers->e);
+    CBRESbr(2, &registers->e);
     return 0;
 }
 int Instructions::CBRES3E()
 {
-    CBRESbr(3, registers->e);
+    CBRESbr(3, &registers->e);
     return 0;
 }
 int Instructions::CBRES4E()
 {
-    CBRESbr(4, registers->e);
+    CBRESbr(4, &registers->e);
     return 0;
 }
 int Instructions::CBRES5E()
 {
-    CBRESbr(5, registers->e);
+    CBRESbr(5, &registers->e);
     return 0;
 }
 int Instructions::CBRES6E()
 {
-    CBRESbr(6, registers->e);
+    CBRESbr(6, &registers->e);
     return 0;
 }
 int Instructions::CBRES7E()
 {
-    CBRESbr(7, registers->e);
+    CBRESbr(7, &registers->e);
     return 0;
 }
 int Instructions::CBRES0H()
 {
-    CBRESbr(0, registers->h);
+    CBRESbr(0, &registers->h);
     return 0;
 }
 int Instructions::CBRES1H()
 {
-    CBRESbr(1, registers->h);
+    CBRESbr(1, &registers->h);
     return 0;
 }
 int Instructions::CBRES2H()
 {
-    CBRESbr(2, registers->h);
+    CBRESbr(2, &registers->h);
     return 0;
 }
 int Instructions::CBRES3H()
 {
-    CBRESbr(3, registers->h);
+    CBRESbr(3, &registers->h);
     return 0;
 }
 int Instructions::CBRES4H()
 {
-    CBRESbr(4, registers->h);
+    CBRESbr(4, &registers->h);
     return 0;
 }
 int Instructions::CBRES5H()
 {
-    CBRESbr(5, registers->h);
+    CBRESbr(5, &registers->h);
     return 0;
 }
 int Instructions::CBRES6H()
 {
-    CBRESbr(6, registers->h);
+    CBRESbr(6, &registers->h);
     return 0;
 }
 int Instructions::CBRES7H()
 {
-    CBRESbr(7, registers->h);
+    CBRESbr(7, &registers->h);
     return 0;
 }
 int Instructions::CBRES0L()
 {
-    CBRESbr(0, registers->l);
+    CBRESbr(0, &registers->l);
     return 0;
 }
 int Instructions::CBRES1L()
 {
-    CBRESbr(1, registers->l);
+    CBRESbr(1, &registers->l);
     return 0;
 }
 int Instructions::CBRES2L()
 {
-    CBRESbr(2, registers->l);
+    CBRESbr(2, &registers->l);
     return 0;
 }
 int Instructions::CBRES3L()
 {
-    CBRESbr(3, registers->l);
+    CBRESbr(3, &registers->l);
     return 0;
 }
 int Instructions::CBRES4L()
 {
-    CBRESbr(4, registers->l);
+    CBRESbr(4, &registers->l);
     return 0;
 }
 int Instructions::CBRES5L()
 {
-    CBRESbr(5, registers->l);
+    CBRESbr(5, &registers->l);
     return 0;
 }
 int Instructions::CBRES6L()
 {
-    CBRESbr(6, registers->l);
+    CBRESbr(6, &registers->l);
     return 0;
 }
 int Instructions::CBRES7L()
 {
-    CBRESbr(7, registers->l);
+    CBRESbr(7, &registers->l);
     return 0;
 }
 int Instructions::CBRES0HLm()
 {
-    CBRESbr(0, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(0, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES1HLm()
 {
-    CBRESbr(1, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(1, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES2HLm()
 {
-    CBRESbr(2, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(2, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES3HLm()
 {
-    CBRESbr(3, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(3, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES4HLm()
 {
-    CBRESbr(4, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(4, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES5HLm()
 {
-    CBRESbr(5, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(5, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES6HLm()
 {
-    CBRESbr(6, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(6, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 int Instructions::CBRES7HLm()
 {
-    CBRESbr(7, mmu->GetMemoryRef(registers->hl));
+    CBRESbr(7, mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 
 int Instructions::CBSWAPA()
 {
-    CBSWAPn(registers->a);
+    CBSWAPn(&registers->a);
     return 0;
 }
 int Instructions::CBSWAPB()
 {
-    CBSWAPn(registers->b);
+    CBSWAPn(&registers->b);
     return 0;
 }
 int Instructions::CBSWAPC()
 {
-    CBSWAPn(registers->c);
+    CBSWAPn(&registers->c);
     return 0;
 }
 int Instructions::CBSWAPD()
 {
-    CBSWAPn(registers->d);
+    CBSWAPn(&registers->d);
     return 0;
 }
 int Instructions::CBSWAPE()
 {
-    CBSWAPn(registers->e);
+    CBSWAPn(&registers->e);
     return 0;
 }
 int Instructions::CBSWAPH()
 {
-    CBSWAPn(registers->h);
+    CBSWAPn(&registers->h);
     return 0;
 }
 int Instructions::CBSWAPL()
 {
-    CBSWAPn(registers->l);
+    CBSWAPn(&registers->l);
     return 0;
 }
 int Instructions::CBSWAPHLm()
 {
-    CBSWAPn(mmu->GetMemoryRef(registers->hl));
+    CBSWAPn(mmu->GetMemoryPtr(registers->hl));
     return 0;
 }
 

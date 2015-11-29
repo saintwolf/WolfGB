@@ -18,15 +18,22 @@ void GDDB::Step()
 {
     if (enabled)
     {
+        // If no breakpoint or if breakpoint is reached, start stepping
         if (BreakPoint == 0 || BreakPoint == z80->GetRegisters()->pc)
         {
+            if (BreakPoint == z80->GetRegisters()->pc)
+            {
+                printf("Breakpoint at 0x%X\n", BreakPoint);
+            }
             BreakPoint = 0;
             PrintNextInstr();
             CommandPrompt();
-            printf("Executing instruction: 0x%X from 0x%X\n", z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc), z80->GetRegisters()->pc);
-            if (z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc) == 0xCB)
+
+            uint8_t nextOpcode = *z80->GetMMU()->GetMemoryPtr(z80->GetRegisters()->pc);
+            printf("Executing instruction: 0x%X from 0x%X\n", nextOpcode, z80->GetRegisters()->pc);
+            if (nextOpcode == 0xCB)
             {
-                printf("Executing CB instruction: 0x%X from 0x%X\n", z80->GetMMU()->GetMemoryRef(z80->GetRegisters()->pc + 1), z80->GetRegisters()->pc + 1);
+                printf("Executing CB instruction: 0x%X from 0x%X\n", *z80->GetMMU()->GetMemoryPtr(z80->GetRegisters()->pc + 1), z80->GetRegisters()->pc + 1);
             }
         }
     }
@@ -40,8 +47,8 @@ void GDDB::PrintRegisters()
     printf("BC: 0x%X\n", r->bc);
     printf("DE: 0x%X\n", r->de);
     printf("HL: 0x%X\n", r->hl);
-    printf("PC: 0x%X\n", r->pc);
     printf("SP: 0x%X\n", r->sp);
+    printf("PC: 0x%X\n", r->pc);
 }
 
 void GDDB::PrintNextInstr()
@@ -105,13 +112,32 @@ void GDDB::CommandPrompt()
             {
                 PrintRegisters();
             }
+            else if (commandArray[1] == "memory")
+            {
+                int memadd = stoi(commandArray[2], 0, 16) & 0xFFFF;
+                printf("Memory at 0x%X: 0x%X\n", memadd, z80->GetMMU()->ReadByte(memadd));
+            }
             else
             {
-                cout << "show Usage: regs" << endl;
+                cout << "show Usage: regs, memory 0xn" << endl;
             }
         }
+        else if (commandArray[0] == "set")
+        {
+            if (commandArray[1] == "memory")
+            {
+                uint16_t memadd = stoi(commandArray[2], 0, 16) & 0xFFFF;
+                uint8_t data = stoi(commandArray[3], 0, 10) & 0xFF;
+                z80->GetMMU()->WriteByte(memadd, data);
+                printf("Memory at 0x%X set to: 0x%X\n", memadd, z80->GetMMU()->ReadByte(memadd));
+            }
+        }
+        else if (commandArray[0] == "reset")
+        {
+            ResetCommand();
+        }
         // Step to next command or breakpoint, nothing entered
-        else if (command.length() == 0)
+        else if (commandArray[0] == "")
         {
             loopCommand = false;
         }

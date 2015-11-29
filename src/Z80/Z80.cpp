@@ -12,8 +12,8 @@ Z80::Z80()
 Z80::~Z80()
 {
     delete instructions;
-    delete gpu;
     delete mmu;
+    delete gpu;
     delete registers;
 }
 
@@ -27,13 +27,27 @@ void Z80::Reset()
     mmu->Reset();
 }
 
-uint8_t Z80::Step()
+int Z80::Step()
 {
     uint8_t opcode = mmu->ReadByte(registers->pc++);
     instructions->ExecuteInstruction(opcode);
-    gpu->Step(ClockCycles[opcode] >> 2);
-    clock.m += ClockCycles[opcode];
-    clock.t += ClockCycles[opcode] >> 2;
+
+    uint8_t cycles;
+    if (opcode == 0xCB)
+    {
+        cycles = CBClockCycles[opcode];
+    }
+    else
+    {
+        cycles = ClockCycles[opcode];
+    }
+
+    clock.m += cycles;
+    clock.t += cycles >> 2;
+
+    gpu->Step(cycles);
+
+    return cycles;
 }
 
 Registers* Z80::GetRegisters()

@@ -15,7 +15,7 @@ public:
     virtual ~Z80();
 
     void Reset();
-    uint8_t Step(); // Steps through CPU. Returns the amount of M clock cycles
+    int Step(); // Steps through CPU. Returns the amount of M clock cycles
 
     Registers* GetRegisters();
     MMU* GetMMU();

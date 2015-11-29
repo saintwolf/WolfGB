@@ -1,6 +1,8 @@
 #include "MMU.h"
+#include <fstream>
+#include <iostream>
 
-#include <stdio.h>
+//#include <stdio.h>
 
 MMU::MMU(GPU* gpu)
 {
@@ -13,13 +15,41 @@ MMU::~MMU()
     //dtor
 }
 
+void MMU::Reset()
+{
+    // @todo Reset MMU
+}
+
+void MMU::LoadRom(string romPath)
+{
+    int romSize;
+    ifstream romFile (romPath, ifstream::binary);
+    if (romFile.is_open())
+    {
+        romFile.seekg (0, romFile.end);
+        romSize = romFile.tellg();
+        romFile.seekg(0, romFile.beg);
+        printf("MMU: ROM Size (bytes): %i\n", romSize);
+        for (int i = 0; i < romSize && i < 0x8000; i++)
+        {
+            char byte;
+            romFile.read(&byte, sizeof(char));
+            rom[i] = byte;
+        }
+    }
+    else
+    {
+        cout << "Unable to open rom file: " << romPath << endl;
+    }
+}
+
 /** @brief Gets a pointer to a memory address to be accessed by Read/Write functions.
  *
  * @param address The memory address being accessed.
  * @return Pointer to the memory address.
  *
  */
-uint8_t& MMU::GetMemoryRef(uint16_t address)
+uint8_t* MMU::GetMemoryPtr(uint16_t address)
 {
     switch (address & 0xF000)
     {
@@ -29,14 +59,14 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
         {
             if (address < 0x0100)
             {
-                return bios[address];
+                return &bios[address];
             }
             else if (address == 0x0100)
             {
                 inBios = false;
             }
         }
-        return rom[address];
+        return &rom[address];
 
     // ROM 0 (32k)
     case 0x1000:
@@ -46,26 +76,26 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        return rom[address];
+        return &rom[address];
 
     // Video/Graphics RAM
     case 0x8000:
     case 0x9000:
-        return gpu->GetMemoryRef(address);
+        return gpu->GetMemoryPtr(address);
 
     // External RAM
     case 0xA000:
     case 0xB000:
-        return eram[address & 0x1FFF];
+        return &eram[address & 0x1FFF];
 
     // Working RAM
     case 0xC000:
     case 0xD000:
-        return wram[address & 0x1FFF];
+        return &wram[address & 0x1FFF];
 
     // Working RAM shadow
     case 0xE000:
-        return wram[address & 0x1FFF];
+        return &wram[address & 0x1FFF];
 
     case 0xF000:
         switch (address & 0x0F00)
@@ -84,13 +114,11 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
         case 0xB00:
         case 0xC00:
         case 0xD00:
-            return wram[address & 0x1FFF];
+            return &wram[address & 0x1FFF];
 
         // Sprite attribute memory (OAM)
         case 0xE00:
-
-
-            gpu->GetMemoryRef(address);
+            return gpu->GetMemoryPtr(address);
 
         // High RAM / Memory Mapped IO
         case 0xF00:
@@ -100,7 +128,10 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
                 switch (address & 0x00F0)
                 {
                 case 0x40:
-                    gpu->GetMemoryRef(address);
+                    return gpu->GetMemoryPtr(address);
+                default:
+                    printf("MEMORY ADDESS NOT FOUND: 0x%X\n", address);
+                    return &dummyVar;
                 }
             }
             else
@@ -113,41 +144,14 @@ uint8_t& MMU::GetMemoryRef(uint16_t address)
                 // High RAM
                 else
                 {
-                    return hram[address & 0x7F];
+                    return &hram[address & 0x7F];
                 }
             }
+            break;
 
         default:
-            printf("MEMORY ADDESS NOT FOUND: 0x%X", address);
-            return randomint;
-            break;
+            printf("MEMORY ADDESS NOT FOUND: 0x%X\n", address);
+            return &dummyVar;
         }
     }
-}
-
-
-uint8_t MMU::ReadByte(uint16_t address)
-{
-    return GetMemoryRef(address);
-}
-
-uint16_t MMU::ReadWord(uint16_t address)
-{
-    return GetMemoryRef(address) + (GetMemoryRef(address + 1) << 8);
-}
-
-void MMU::WriteByte(uint16_t address, uint8_t data)
-{
-    GetMemoryRef(address) = data;
-}
-
-void MMU::WriteWord(uint16_t address, uint16_t data)
-{
-    GetMemoryRef(address) = data & 0x00FF;
-    GetMemoryRef(address + 1) = data >> 8 & 0x00FF;
-}
-
-void MMU::Reset()
-{
-    // @todo Reset MMU
 }

@@ -68,48 +68,44 @@ private:
 
     // A group of functions to reduce duplicated code for some of the opcodes.
 
-    void LDrn(uint8_t& reg);
-    void LDrr(uint8_t& dest, uint8_t& source);
-    void LDrRRm(uint8_t& dest, uint16_t& source);
-    void LDRRmr(uint16_t& dest, uint8_t& source);
-    void PUSHRR(uint16_t& reg);
-    void POPRR(uint16_t& reg);
-    void ADDAr(uint8_t& reg);
-    void ADCAr(uint8_t& reg);
-    void SUBAr(uint8_t& reg);
-    void SBCAr(uint8_t& reg);
-    void ANDAr(uint8_t& reg);
-    void ORAr(uint8_t& reg);
-    void XORAr(uint8_t& reg);
-    void CPr(uint8_t& reg);
-    void INCr(uint8_t& reg);
-    void DECr(uint8_t& reg);
-    void ADDHLRR(uint16_t& reg);
-    void INCRR(uint16_t& reg);
-    void DECRR(uint16_t& reg);
+    void LDrn(uint8_t* reg);
+    void LDrr(uint8_t* dest, uint8_t* source);
+    void LDrRRm(uint8_t* dest, uint16_t* source);
+    void LDRRmr(uint16_t* dest, uint8_t* source);
+    void PUSHRR(uint16_t* reg);
+    void POPRR(uint16_t* reg);
+    void ADDAr(uint8_t* reg);
+    void ADCAr(uint8_t* reg);
+    void SUBAr(uint8_t* reg);
+    void SBCAr(uint8_t* reg);
+    void ANDAr(uint8_t* reg);
+    void ORAr(uint8_t* reg);
+    void XORAr(uint8_t* reg);
+    void CPr(uint8_t* reg);
+    void INCr(uint8_t* reg);
+    void DECr(uint8_t* reg);
+    void ADDHLRR(uint16_t* reg);
+    void INCRR(uint16_t* reg);
+    void DECRR(uint16_t* reg);
 
     void RSTN(uint8_t offset);
 
-    void CBRLCr(uint8_t& reg);
-    void CBRLr(uint8_t& reg);
-    void CBRRCr(uint8_t& reg);
-    void CBRRr(uint8_t& reg);
-    void CBSLAr(uint8_t& reg);
-    void CBSRAr(uint8_t& reg);
-    void CBSRLr(uint8_t& reg);
-    void CBBITbr(uint8_t b, uint8_t& reg);
-    void CBSETbr(uint8_t b, uint8_t& reg);
-    void CBRESbr(uint8_t b, uint8_t& reg);
-    void CBSWAPn(uint8_t& reg);
+    void CBRLCr(uint8_t* reg);
+    void CBRLr(uint8_t* reg);
+    void CBRRCr(uint8_t* reg);
+    void CBRRr(uint8_t* reg);
+    void CBSLAr(uint8_t* reg);
+    void CBSRAr(uint8_t* reg);
+    void CBSRLr(uint8_t* reg);
+    void CBBITbr(uint8_t b, uint8_t* reg);
+    void CBSETbr(uint8_t b, uint8_t* reg);
+    void CBRESbr(uint8_t b, uint8_t* reg);
+    void CBSWAPn(uint8_t* reg);
 
     //***************************//
     //***START OF INSTRUCTIONS***//
     //***************************//
-    int NOP()
-    {
-        printf("NOP TIME!!1one!");
-        return 4;
-    }
+    int NOP();
 
     //***********************//
     //***** 8-Bit Loads *****//

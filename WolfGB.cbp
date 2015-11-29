@@ -26,6 +26,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-std=c++11" />
 					<Add directory="src" />
 					<Add directory="src/CPU" />
 					<Add directory="src/Memory" />
@@ -45,12 +46,19 @@
 			<Add directory="F:/Users/Saintwolf/Documents/Programming/SDL2-2.0.3/i686-w64-mingw32/lib" />
 		</Linker>
 		<Unit filename=".gitignore" />
+		<Unit filename="README.md" />
+		<Unit filename="WolfGB.cbp.mak" />
+		<Unit filename="WolfGB.depend" />
+		<Unit filename="WolfGB.layout" />
+		<Unit filename="cbp2make.exe" />
+		<Unit filename="src/Debug/GDDB.cpp" />
+		<Unit filename="src/Debug/GDDB.h" />
 		<Unit filename="src/GPU/GPU.cpp" />
 		<Unit filename="src/GPU/GPU.h" />
-		<Unit filename="src/Memory/IORegisters.h" />
+		<Unit filename="src/Memory/IMemoryDevice.cpp" />
+		<Unit filename="src/Memory/IMemoryDevice.h" />
 		<Unit filename="src/Memory/MMU.cpp" />
 		<Unit filename="src/Memory/MMU.h" />
-		<Unit filename="src/Memory/MemorySizes.h" />
 		<Unit filename="src/Z80/Instructions.cpp" />
 		<Unit filename="src/Z80/Instructions.h" />
 		<Unit filename="src/Z80/Registers.cpp" />

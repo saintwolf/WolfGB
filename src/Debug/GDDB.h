@@ -1,7 +1,7 @@
 #ifndef GDDB_H
 #define GDDB_H
 
-#include "Z80.h"
+#include "Z80/Z80.h"
 #include <string>
 
 using namespace std;
@@ -26,10 +26,11 @@ class GDDB
         void BreakCommand(string bp);
         void DebugCommand();
         void ResetCommand();
-
-        uint16_t BreakPoint = 0;
+        void TileMapCommand();
 
         Z80* z80;
+
+        uint16_t BreakPoint = 0;
 };
 
 #endif // GDDB_H

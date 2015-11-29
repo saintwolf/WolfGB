@@ -2,23 +2,22 @@
 #define MMU_H
 
 #include <stdint.h>
+#include <string>
 #include "GPU/GPU.h"
-#include "MemorySizes.h"
+#include "Memory/IMemoryDevice.h"
 
-class MMU
+using namespace std;
+
+class MMU: public IMemoryDevice
 {
 public:
     MMU(GPU* gpu);
     virtual ~MMU();
 
+    uint8_t* GetMemoryPtr(uint16_t address);
+
     void Reset();
-
-    uint8_t& GetMemoryRef(uint16_t address);
-
-    uint8_t     ReadByte(uint16_t address);
-    uint16_t    ReadWord(uint16_t address);
-    void        WriteByte(uint16_t address, uint8_t data);
-    void        WriteWord(uint16_t address, uint16_t data);
+    void LoadRom(string romPath);
 
 protected:
 private:
@@ -46,11 +45,11 @@ private:
         0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50
     };
 
-    uint8_t rom[MemorySizes::ROM_CARTRIDGE_SIZE];
-    uint8_t wram[MemorySizes::EXTERNAL_RAM_SIZE];
-    uint8_t eram[MemorySizes::WORKING_RAM_SIZE];
-    uint8_t hram[MemorySizes::HIGH_RAM_SIZE];
+    uint8_t rom[MemorySizes.ROM_CARTRIDGE_SIZE];
+    uint8_t wram[MemorySizes.EXTERNAL_RAM_SIZE];
+    uint8_t eram[MemorySizes.WORKING_RAM_SIZE];
+    uint8_t hram[MemorySizes.HIGH_RAM_SIZE];
 
-    uint8_t randomint; // @todo a placeholder to return a random reference for IO ports not implemented
+    uint8_t dummyVar = 0; // @todo a placeholder to return a random reference for IO ports not implemented
 };
 #endif // MMU_H
